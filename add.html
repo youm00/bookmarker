@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ブックマークに追加</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; height:100vh; }
+  .box { width: 320px; display:flex; flex-direction:column; gap:10px; }
+  .box input, .box select { padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text); font-family: var(--font-ui); }
+  .box button { padding:10px; border:none; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
+  #status { font-size:0.85em; color:var(--text-dim); min-height:1.2em; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2 style="margin:0;">ブックマークに追加</h2>
+  <input id="title" type="text" placeholder="タイトル">
+  <input id="url" type="text" placeholder="URL">
+  <select id="folder"><option value="">(ルート)</option></select>
+  <button id="save-btn">保存</button>
+  <p id="status"></p>
+</div>
+<script>
+const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const params = new URLSearchParams(location.search);
+document.getElementById('title').value = params.get('title') || '';
+document.getElementById('url').value = params.get('url') || '';
+
+let user = null;
+
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    document.getElementById('status').textContent = '先に本体サイトでログインしてください';
+    document.getElementById('save-btn').disabled = true;
+    return;
+  }
+  user = session.user;
+  const { data: folders } = await sb.from('bookmarks').select('id,title').eq('type', 'folder').order('title');
+  const sel = document.getElementById('folder');
+  for (const f of (folders || [])) {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.title;
+    sel.appendChild(opt);
+  }
+})();
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const title = document.getElementById('title').value.trim();
+  const url = document.getElementById('url').value.trim();
+  const parent_id = document.getElementById('folder').value || null;
+  if (!title || !url) { document.getElementById('status').textContent = 'タイトルとURLを入力してください'; return; }
+
+  const { count } = await sb.from('bookmarks').select('id', { count: 'exact', head: true }).eq('parent_id', parent_id);
+  const { error } = await sb.from('bookmarks').insert({
+    user_id: user.id, parent_id, type: 'bookmark', title, url, position: count || 0
+  });
+  if (error) {
+    document.getElementById('status').textContent = '保存に失敗しました: ' + error.message;
+    return;
+  }
+  document.getElementById('status').textContent = '保存しました。このタブは閉じて構いません。';
+  setTimeout(() => window.close(), 800);
+});
+</script>
+</body>
+</html>
