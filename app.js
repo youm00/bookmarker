@@ -2,7 +2,7 @@
 // 設定: SupabaseのプロジェクトURLとanonキーをここに入れてください
 // Supabaseダッシュボード > Project Settings > API から取得
 // ============================================================
-const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co/rest/v1/';
+const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
