@@ -101,6 +101,7 @@ async function enterApp() {
   document.getElementById('app').classList.remove('hidden');
   setPaneTree();   // スマホでは最初にフォルダ一覧から始める
   setEditMode(false); // 事故防止のため、開くたびに必ず閲覧モードから始める
+  history.replaceState({ folderId: null }, '', location.href); // 戻るボタン用の起点を設定
   await loadBookmarks();
 }
 
@@ -308,7 +309,8 @@ function renderBreadcrumb() {
   }
 }
 
-function selectFolder(id) {
+function selectFolder(id, options = {}) {
+  const { pushHistory = true } = options;
   currentFolderId = id;
   searchQuery = '';
   document.getElementById('search-input').value = '';
@@ -316,7 +318,19 @@ function selectFolder(id) {
   renderBreadcrumb();
   renderList();
   setPaneList(); // スマホでは中身の一覧画面に切り替える(PC幅では無視される)
+
+  if (pushHistory) {
+    history.pushState({ folderId: id }, '', location.href);
+  }
 }
+
+// スマホの「戻る」ボタン(ブラウザバック)でアプリごと閉じず、
+// 1つ前に見ていたフォルダに戻れるようにする
+window.addEventListener('popstate', (e) => {
+  if (!currentUser) return; // ログイン前は何もしない
+  const folderId = e.state ? e.state.folderId : null;
+  selectFolder(folderId, { pushHistory: false });
+});
 
 // ============================================================
 // メインリスト描画
