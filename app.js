@@ -6,7 +6,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(設定パネルに表示する。動作確認用)
-const APP_VERSION = 'v12';
+const APP_VERSION = 'v13';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -106,23 +106,24 @@ async function enterApp() {
   setEditMode(false); // 事故防止のため、開くたびに必ず閲覧モードから始める
   await loadBookmarks();
 
-  // URLに ?folder=<ID> が付いている場合(ホーム画面ショートカット等)は、
-  // そのフォルダの中身を直接開く
   const params = new URLSearchParams(location.search);
   const targetFolderId = params.get('folder');
-  const targetItem = targetFolderId ? itemsById.get(targetFolderId) : null;
 
-  // 直前のペイン表示状態を取得
-  const savedPane = sessionStorage.getItem('bm_pane') || 'pane-tree';
-
-  if (targetItem && targetItem.type === 'folder') {
+  if (targetFolderId === 'root') {
+    // ?folder=root の場合は 2.png (ルートのリスト画面) を表示
+    selectFolder(null, { pushHistory: false });
+  } else if (targetFolderId && itemsById.has(targetFolderId)) {
+    // サブフォルダ指定の場合
     selectFolder(targetFolderId, { pushHistory: false });
   } else {
-    if (savedPane === 'pane-list') {
-      setPaneList();
-    } else {
-      setPaneTree();
-    }
+    // パラメータなしの場合は 1.png (フォルダツリー画面) を表示
+    currentFolderId = null;
+    searchQuery = '';
+    document.getElementById('search-input').value = '';
+    renderTree();
+    renderBreadcrumb();
+    renderList();
+    setPaneTree();
     history.replaceState({ folderId: null }, '', location.pathname);
   }
 }
@@ -151,21 +152,19 @@ function toggleEditMode() {
 function setPaneTree() {
   document.body.classList.remove('pane-list');
   document.body.classList.add('pane-tree');
-  sessionStorage.setItem('bm_pane', 'pane-tree');
 }
 
-// 「←」ボタン専用: ツリー画面に戻り、URLからもフォルダ指定を消す。
+// 「←」ボタン専用: ツリー画面に戻り、URLから folder パラメータを削除する
 function backToFolderTree() {
   setPaneTree();
   const url = new URL(location.href);
   url.searchParams.delete('folder');
-  history.replaceState({ folderId: null }, '', url);
+  history.pushState({ folderId: null }, '', url);
 }
 
 function setPaneList() {
   document.body.classList.remove('pane-tree');
   document.body.classList.add('pane-list');
-  sessionStorage.setItem('bm_pane', 'pane-list');
 }
 
 function toggleSettingsPanel() {
@@ -363,26 +362,35 @@ function selectFolder(id, options = {}) {
   renderTree();
   renderBreadcrumb();
   renderList();
-  setPaneList(); // スマホでは中身の一覧画面に切り替える(PC幅では無視される)
+  setPaneList(); // スマホでは中身の一覧画面(2.png)に切り替える
 
   if (pushHistory) {
     const url = new URL(location.href);
-    if (id) {
-      url.searchParams.set('folder', id);
-    } else {
-      url.searchParams.delete('folder');
-    }
-    history.pushState({ folderId: id }, '', url);
+    const targetFolder = id || 'root'; // 「すべて」の時は 'root'、フォルダの時はそのID
+    url.searchParams.set('folder', targetFolder);
+    history.pushState({ folderId: targetFolder }, '', url);
   }
 }
 
-// スマホの「戻る」ボタン(ブラウザバック)でアプリごと閉じず、
-// 1つ前に見ていたフォルダに戻れるようにする
+// スマホの「戻る」ボタン(ブラウザバック)イベント処理
 window.addEventListener('popstate', (e) => {
-  if (!currentUser) return; // ログイン前は何もしない
+  if (!currentUser) return;
   const folderId = e.state ? e.state.folderId : null;
 
-  if (folderId === null) {
+  if (folderId === 'root') {
+    // 2.png (「すべて」のリスト画面) に戻った場合
+    currentFolderId = null;
+    searchQuery = '';
+    document.getElementById('search-input').value = '';
+    renderTree();
+    renderBreadcrumb();
+    renderList();
+    setPaneList();
+  } else if (folderId && itemsById.has(folderId)) {
+    // サブフォルダに戻った場合
+    selectFolder(folderId, { pushHistory: false });
+  } else {
+    // 1.png (フォルダツリー画面) に戻った場合
     currentFolderId = null;
     searchQuery = '';
     document.getElementById('search-input').value = '';
@@ -390,8 +398,6 @@ window.addEventListener('popstate', (e) => {
     renderBreadcrumb();
     renderList();
     setPaneTree();
-  } else {
-    selectFolder(folderId, { pushHistory: false });
   }
 });
 
