@@ -99,10 +99,21 @@ async function handleLogout() {
 async function enterApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  setPaneTree();   // スマホでは最初にフォルダ一覧から始める
   setEditMode(false); // 事故防止のため、開くたびに必ず閲覧モードから始める
-  history.replaceState({ folderId: null }, '', location.href); // 戻るボタン用の起点を設定
   await loadBookmarks();
+
+  // URLに ?folder=<ID> が付いている場合(ホーム画面ショートカット等)は、
+  // そのフォルダの中身を直接開く
+  const params = new URLSearchParams(location.search);
+  const targetFolderId = params.get('folder');
+  const targetItem = targetFolderId ? itemsById.get(targetFolderId) : null;
+
+  if (targetItem && targetItem.type === 'folder') {
+    selectFolder(targetFolderId, { pushHistory: false });
+  } else {
+    setPaneTree(); // 通常はフォルダ一覧から始める
+    history.replaceState({ folderId: null }, '', location.pathname);
+  }
 }
 
 // ============================================================
@@ -320,7 +331,15 @@ function selectFolder(id, options = {}) {
   setPaneList(); // スマホでは中身の一覧画面に切り替える(PC幅では無視される)
 
   if (pushHistory) {
-    history.pushState({ folderId: id }, '', location.href);
+    // フォルダごとに固有のURL(?folder=ID)にする
+    // → Androidの「ホーム画面に追加」で特定フォルダ直行のショートカットが作れる
+    const url = new URL(location.href);
+    if (id) {
+      url.searchParams.set('folder', id);
+    } else {
+      url.searchParams.delete('folder');
+    }
+    history.pushState({ folderId: id }, '', url);
   }
 }
 
