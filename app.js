@@ -5,6 +5,9 @@
 const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
+// 今読み込まれているコードのバージョン(設定パネルに表示する。動作確認用)
+const APP_VERSION = 'v10';
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ---------- グローバル状態 ----------
@@ -35,6 +38,7 @@ async function init() {
 function bindStaticEvents() {
   document.getElementById('login-btn').addEventListener('click', handleLogin);
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
+  document.getElementById('version-label').textContent = 'バージョン: ' + APP_VERSION;
 
   document.getElementById('new-root-folder-btn').addEventListener('click', () => openEditModal('folder', null, currentFolderId));
   document.getElementById('add-bookmark-btn').addEventListener('click', () => openEditModal('bookmark', null, currentFolderId));
