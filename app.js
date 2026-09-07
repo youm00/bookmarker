@@ -6,7 +6,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(設定パネルに表示する。動作確認用)
-const APP_VERSION = 'v11';
+const APP_VERSION = 'v12';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -112,10 +112,17 @@ async function enterApp() {
   const targetFolderId = params.get('folder');
   const targetItem = targetFolderId ? itemsById.get(targetFolderId) : null;
 
+  // 直前のペイン表示状態を取得
+  const savedPane = sessionStorage.getItem('bm_pane') || 'pane-tree';
+
   if (targetItem && targetItem.type === 'folder') {
     selectFolder(targetFolderId, { pushHistory: false });
   } else {
-    setPaneTree(); // 通常はフォルダ一覧から始める
+    if (savedPane === 'pane-list') {
+      setPaneList();
+    } else {
+      setPaneTree();
+    }
     history.replaceState({ folderId: null }, '', location.pathname);
   }
 }
@@ -144,21 +151,23 @@ function toggleEditMode() {
 function setPaneTree() {
   document.body.classList.remove('pane-list');
   document.body.classList.add('pane-tree');
+  sessionStorage.setItem('bm_pane', 'pane-tree');
 }
 
 // 「←」ボタン専用: ツリー画面に戻り、URLからもフォルダ指定を消す。
-// (これをしないと、この状態でプルダウン更新した時にURLに残ったフォルダが
-//  再度開いてしまい、見た目とURLがズレる)
 function backToFolderTree() {
   setPaneTree();
   const url = new URL(location.href);
   url.searchParams.delete('folder');
   history.replaceState({ folderId: null }, '', url);
 }
+
 function setPaneList() {
   document.body.classList.remove('pane-tree');
   document.body.classList.add('pane-list');
+  sessionStorage.setItem('bm_pane', 'pane-list');
 }
+
 function toggleSettingsPanel() {
   document.getElementById('settings-panel').classList.toggle('hidden');
   updateDebugInfo();
@@ -357,8 +366,6 @@ function selectFolder(id, options = {}) {
   setPaneList(); // スマホでは中身の一覧画面に切り替える(PC幅では無視される)
 
   if (pushHistory) {
-    // フォルダごとに固有のURL(?folder=ID)にする
-    // → Androidの「ホーム画面に追加」で特定フォルダ直行のショートカットが作れる
     const url = new URL(location.href);
     if (id) {
       url.searchParams.set('folder', id);
@@ -376,9 +383,6 @@ window.addEventListener('popstate', (e) => {
   const folderId = e.state ? e.state.folderId : null;
 
   if (folderId === null) {
-    // ルート(すべて)に戻る場合は、通常の初期状態と同じくフォルダ一覧(ツリー)に戻す。
-    // (これまでは常にリスト画面を強制していたため、「戻る」操作でルートに
-    //  たどり着いた時に、想定と違うリスト画面が表示されてしまっていた)
     currentFolderId = null;
     searchQuery = '';
     document.getElementById('search-input').value = '';
@@ -619,7 +623,6 @@ function handleImportFile(e) {
       toast('インポート中…しばらくお待ちください');
       const tree = parseNetscapeHTML(ev.target.result);
       const rows = [];
-      // 日付フォルダで包まず、「すべて」(ルート)の直下にそのまま展開する
       flattenImportTree(tree, null, rows, getChildren(null).length);
 
       await insertRowsInBatches(rows);
@@ -633,9 +636,6 @@ function handleImportFile(e) {
   reader.readAsText(file, 'UTF-8');
 }
 
-// パース結果のツリーを、あらかじめIDを採番したフラットな行の配列に変換する
-// (親フォルダのIDが先に分かっていないと子のparent_idが決められないため、
-//  ここでクライアント側でUUIDを生成してから一括INSERTする)
 function flattenImportTree(nodes, parentId, rows, startPosition = 0) {
   let position = startPosition;
   for (const node of nodes) {
@@ -655,8 +655,6 @@ function flattenImportTree(nodes, parentId, rows, startPosition = 0) {
   }
 }
 
-// 1件ずつ通信すると件数が多いスマホ回線で失敗しやすいため、
-// まとめて(最大300件ずつ)一括INSERTする
 async function insertRowsInBatches(rows, batchSize = 300) {
   for (let i = 0; i < rows.length; i += batchSize) {
     const chunk = rows.slice(i, i + batchSize);
@@ -665,7 +663,6 @@ async function insertRowsInBatches(rows, batchSize = 300) {
   }
 }
 
-// Netscape Bookmark File Format(<DL><DT> のネスト構造)をパースする
 function parseNetscapeHTML(htmlText) {
   const doc = new DOMParser().parseFromString(htmlText, 'text/html');
   const rootDl = doc.querySelector('dl');
@@ -675,7 +672,6 @@ function parseNetscapeHTML(htmlText) {
 
 function parseDl(dlEl) {
   const nodes = [];
-  // dlの直下にある dt を順に処理(次の要素がdlならフォルダの中身)
   for (const dt of dlEl.children) {
     if (dt.tagName !== 'DT') continue;
     const h3 = dt.querySelector(':scope > h3');
