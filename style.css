@@ -113,6 +113,13 @@ html, body {
   justify-content: space-between;
   padding: 16px 16px 8px;
 }
+.sidebar-header-actions {
+  display: flex;
+  gap: 6px;
+}
+.mobile-only {
+  display: none;
+}
 .brand {
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -172,13 +179,20 @@ html, body {
 }
 
 .settings-panel {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 150;
   display: flex;
-  gap: 24px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--accent-soft);
+  gap: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
   font-size: 0.85em;
   flex-wrap: wrap;
+  max-width: calc(100vw - 24px);
 }
 .settings-panel label {
   display: flex;
@@ -399,4 +413,48 @@ html, body {
   border-radius: 6px;
   font-size: 0.9em;
   z-index: 200;
+}
+
+/* ============================================================
+   スマホなど狭い画面: 2ペイン(サイドバー+メイン)を
+   1ペインずつ切り替えて表示する(bookmarker.sakura.ne.jp的な操作感)
+   body.pane-tree  = フォルダ一覧を全画面表示
+   body.pane-list  = 中身の一覧を全画面表示(初期値)
+   ============================================================ */
+@media (max-width: 768px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .mobile-only {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.pane-tree .sidebar { display: flex; }
+  body.pane-tree .main    { display: none; }
+
+  body.pane-list .sidebar { display: none; }
+  body.pane-list .main    { display: flex; }
+
+  .toolbar {
+    flex-wrap: wrap;
+  }
+  .search-input {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .toolbar-actions {
+    order: 4;
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+  .settings-panel {
+    flex-direction: column;
+    gap: 14px;
+    top: 0;
+    right: 0;
+    left: 0;
+    border-radius: 0;
+  }
 }

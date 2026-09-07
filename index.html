@@ -30,7 +30,10 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <span class="brand">My Bookmarks</span>
-      <button id="logout-btn" class="icon-btn" title="ログアウト">⏻</button>
+      <div class="sidebar-header-actions">
+        <button id="settings-btn-tree" class="icon-btn" title="表示設定">Aa</button>
+        <button id="logout-btn" class="icon-btn" title="ログアウト">⏻</button>
+      </div>
     </div>
     <div class="tree-actions">
       <button id="new-root-folder-btn" class="text-btn">+ フォルダ</button>
@@ -40,6 +43,7 @@
 
   <main class="main">
     <div class="toolbar">
+      <button id="mobile-back-btn" class="icon-btn mobile-only" title="フォルダ一覧に戻る">←</button>
       <div class="breadcrumb" id="breadcrumb"></div>
       <input id="search-input" type="search" placeholder="検索(タイトル・URL・タグ)" class="search-input">
       <div class="toolbar-actions">
@@ -51,26 +55,27 @@
       </div>
     </div>
 
-    <div id="settings-panel" class="settings-panel hidden">
-      <label>
-        文字サイズ
-        <input id="font-size-range" type="range" min="12" max="22" value="15">
-        <span id="font-size-value">15px</span>
-      </label>
-      <label>
-        行間
-        <input id="line-height-range" type="range" min="120" max="220" step="10" value="160">
-        <span id="line-height-value">1.6</span>
-      </label>
-      <label class="checkbox-row">
-        <input id="dark-mode-toggle" type="checkbox">
-        ダークモード
-      </label>
-    </div>
-
     <div id="list" class="list"></div>
   </main>
 
+</div>
+
+<div id="settings-panel" class="settings-panel hidden">
+  <label>
+    文字サイズ
+    <input id="font-size-range" type="range" min="12" max="26" value="15">
+    <span id="font-size-value">15px</span>
+  </label>
+  <label>
+    行間
+    <input id="line-height-range" type="range" min="120" max="220" step="10" value="160">
+    <span id="line-height-value">1.6</span>
+  </label>
+  <label class="checkbox-row">
+    <input id="dark-mode-toggle" type="checkbox">
+    ダークモード
+  </label>
+  <button id="settings-close-btn" class="text-btn">閉じる</button>
 </div>
 
 <!-- 追加/編集モーダル -->

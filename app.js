@@ -47,9 +47,12 @@ function bindStaticEvents() {
   document.getElementById('import-file').addEventListener('change', handleImportFile);
   document.getElementById('export-btn').addEventListener('click', handleExport);
 
-  document.getElementById('settings-btn').addEventListener('click', () => {
-    document.getElementById('settings-panel').classList.toggle('hidden');
+  document.getElementById('settings-btn').addEventListener('click', toggleSettingsPanel);
+  document.getElementById('settings-btn-tree').addEventListener('click', toggleSettingsPanel);
+  document.getElementById('settings-close-btn').addEventListener('click', () => {
+    document.getElementById('settings-panel').classList.add('hidden');
   });
+  document.getElementById('mobile-back-btn').addEventListener('click', setPaneTree);
   document.getElementById('font-size-range').addEventListener('input', (e) => {
     setFontSize(e.target.value);
   });
@@ -92,7 +95,23 @@ async function handleLogout() {
 async function enterApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  setPaneTree(); // スマホでは最初にフォルダ一覧から始める
   await loadBookmarks();
+}
+
+// ============================================================
+// スマホ向け1ペイン表示の切り替え(PC幅では無視される)
+// ============================================================
+function setPaneTree() {
+  document.body.classList.remove('pane-list');
+  document.body.classList.add('pane-tree');
+}
+function setPaneList() {
+  document.body.classList.remove('pane-tree');
+  document.body.classList.add('pane-list');
+}
+function toggleSettingsPanel() {
+  document.getElementById('settings-panel').classList.toggle('hidden');
 }
 
 // ============================================================
@@ -272,6 +291,7 @@ function selectFolder(id) {
   renderTree();
   renderBreadcrumb();
   renderList();
+  setPaneList(); // スマホでは中身の一覧画面に切り替える(PC幅では無視される)
 }
 
 // ============================================================
