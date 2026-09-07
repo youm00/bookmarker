@@ -53,7 +53,7 @@ function bindStaticEvents() {
   document.getElementById('settings-close-btn').addEventListener('click', () => {
     document.getElementById('settings-panel').classList.add('hidden');
   });
-  document.getElementById('mobile-back-btn').addEventListener('click', setPaneTree);
+  document.getElementById('mobile-back-btn').addEventListener('click', backToFolderTree);
   document.getElementById('mode-toggle-btn').addEventListener('click', toggleEditMode);
   document.getElementById('mode-toggle-btn-tree').addEventListener('click', toggleEditMode);
   document.getElementById('font-size-range').addEventListener('input', (e) => {
@@ -140,6 +140,16 @@ function toggleEditMode() {
 function setPaneTree() {
   document.body.classList.remove('pane-list');
   document.body.classList.add('pane-tree');
+}
+
+// 「←」ボタン専用: ツリー画面に戻り、URLからもフォルダ指定を消す。
+// (これをしないと、この状態でプルダウン更新した時にURLに残ったフォルダが
+//  再度開いてしまい、見た目とURLがズレる)
+function backToFolderTree() {
+  setPaneTree();
+  const url = new URL(location.href);
+  url.searchParams.delete('folder');
+  history.replaceState({ folderId: null }, '', url);
 }
 function setPaneList() {
   document.body.classList.remove('pane-tree');
