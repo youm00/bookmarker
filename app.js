@@ -6,7 +6,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(設定パネルに表示する。動作確認用)
-const APP_VERSION = 'v10';
+const APP_VERSION = 'v11';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -161,6 +161,18 @@ function setPaneList() {
 }
 function toggleSettingsPanel() {
   document.getElementById('settings-panel').classList.toggle('hidden');
+  updateDebugInfo();
+}
+
+// 診断用: 今の状態(ペイン/フォルダ/URL)を設定パネルに表示する
+function updateDebugInfo() {
+  const pane = document.body.classList.contains('pane-tree') ? 'tree'
+    : document.body.classList.contains('pane-list') ? 'list' : '(なし)';
+  const el = document.getElementById('debug-info');
+  if (el) {
+    el.textContent =
+      `pane: ${pane} / folder: ${currentFolderId || '(root)'} / URL: ${location.href}`;
+  }
 }
 
 // ============================================================
