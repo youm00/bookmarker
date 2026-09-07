@@ -559,20 +559,9 @@ function handleImportFile(e) {
     try {
       toast('インポート中…しばらくお待ちください');
       const tree = parseNetscapeHTML(ev.target.result);
-      const dateLabel = new Date().toISOString().slice(0, 10);
-      const rootFolderId = crypto.randomUUID();
-      const rootPosition = getChildren(null).length;
-
-      const rows = [{
-        id: rootFolderId,
-        user_id: currentUser.id,
-        parent_id: null,
-        type: 'folder',
-        title: `インポート ${dateLabel}`,
-        tags: [],
-        position: rootPosition
-      }];
-      flattenImportTree(tree, rootFolderId, rows);
+      const rows = [];
+      // 日付フォルダで包まず、「すべて」(ルート)の直下にそのまま展開する
+      flattenImportTree(tree, null, rows, getChildren(null).length);
 
       await insertRowsInBatches(rows);
       toast(`インポートが完了しました(${rows.length}件)`);
@@ -588,8 +577,8 @@ function handleImportFile(e) {
 // パース結果のツリーを、あらかじめIDを採番したフラットな行の配列に変換する
 // (親フォルダのIDが先に分かっていないと子のparent_idが決められないため、
 //  ここでクライアント側でUUIDを生成してから一括INSERTする)
-function flattenImportTree(nodes, parentId, rows) {
-  let position = 0;
+function flattenImportTree(nodes, parentId, rows, startPosition = 0) {
+  let position = startPosition;
   for (const node of nodes) {
     const id = crypto.randomUUID();
     if (node.type === 'folder') {
