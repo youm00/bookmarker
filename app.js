@@ -517,10 +517,25 @@ function handleImportFile(e) {
   const reader = new FileReader();
   reader.onload = async (ev) => {
     try {
+      toast('インポート中…しばらくお待ちください');
       const tree = parseNetscapeHTML(ev.target.result);
-      const importRootId = await createImportRootFolder();
-      await insertImportedTree(tree, importRootId);
-      toast('インポートが完了しました');
+      const dateLabel = new Date().toISOString().slice(0, 10);
+      const rootFolderId = crypto.randomUUID();
+      const rootPosition = getChildren(null).length;
+
+      const rows = [{
+        id: rootFolderId,
+        user_id: currentUser.id,
+        parent_id: null,
+        type: 'folder',
+        title: `インポート ${dateLabel}`,
+        tags: [],
+        position: rootPosition
+      }];
+      flattenImportTree(tree, rootFolderId, rows);
+
+      await insertRowsInBatches(rows);
+      toast(`インポートが完了しました(${rows.length}件)`);
       await loadBookmarks();
     } catch (err) {
       toast('インポートに失敗しました: ' + err.message);
@@ -530,18 +545,36 @@ function handleImportFile(e) {
   reader.readAsText(file, 'UTF-8');
 }
 
-async function createImportRootFolder() {
-  const dateLabel = new Date().toISOString().slice(0, 10);
-  const position = getChildren(null).length;
-  const { data, error } = await sb.from('bookmarks').insert({
-    user_id: currentUser.id,
-    parent_id: null,
-    type: 'folder',
-    title: `インポート ${dateLabel}`,
-    position
-  }).select().single();
-  if (error) throw error;
-  return data.id;
+// パース結果のツリーを、あらかじめIDを採番したフラットな行の配列に変換する
+// (親フォルダのIDが先に分かっていないと子のparent_idが決められないため、
+//  ここでクライアント側でUUIDを生成してから一括INSERTする)
+function flattenImportTree(nodes, parentId, rows) {
+  let position = 0;
+  for (const node of nodes) {
+    const id = crypto.randomUUID();
+    if (node.type === 'folder') {
+      rows.push({
+        id, user_id: currentUser.id, parent_id: parentId,
+        type: 'folder', title: node.title, tags: [], position: position++
+      });
+      flattenImportTree(node.children, id, rows);
+    } else {
+      rows.push({
+        id, user_id: currentUser.id, parent_id: parentId,
+        type: 'bookmark', title: node.title, url: node.url, tags: [], position: position++
+      });
+    }
+  }
+}
+
+// 1件ずつ通信すると件数が多いスマホ回線で失敗しやすいため、
+// まとめて(最大300件ずつ)一括INSERTする
+async function insertRowsInBatches(rows, batchSize = 300) {
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const chunk = rows.slice(i, i + batchSize);
+    const { error } = await sb.from('bookmarks').insert(chunk);
+    if (error) throw error;
+  }
 }
 
 // Netscape Bookmark File Format(<DL><DT> のネスト構造)をパースする
@@ -575,28 +608,6 @@ function parseDl(dlEl) {
     }
   }
   return nodes;
-}
-
-async function insertImportedTree(nodes, parentId) {
-  let position = getChildren(parentId).length;
-  for (const node of nodes) {
-    if (node.type === 'folder') {
-      const { data, error } = await sb.from('bookmarks').insert({
-        user_id: currentUser.id, parent_id: parentId,
-        type: 'folder', title: node.title, position: position++
-      }).select().single();
-      if (error) throw error;
-      // 再帰的に子を挿入するため、インメモリのインデックスも仮更新
-      childrenByParent.set(parentId || 'root', [...(childrenByParent.get(parentId || 'root') || []), data]);
-      await insertImportedTree(node.children, data.id);
-    } else {
-      const { error } = await sb.from('bookmarks').insert({
-        user_id: currentUser.id, parent_id: parentId,
-        type: 'bookmark', title: node.title, url: node.url, position: position++
-      });
-      if (error) throw error;
-    }
-  }
 }
 
 // ============================================================
