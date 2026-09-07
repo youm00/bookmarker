@@ -14,6 +14,7 @@ let itemsById = new Map();
 let childrenByParent = new Map(); // parentId(or 'root') -> [items] (position順)
 let currentFolderId = null; // null = ルート
 let searchQuery = '';
+let editMode = false;       // false = 閲覧モード, true = 編集モード
 
 // ============================================================
 // 起動
@@ -53,6 +54,8 @@ function bindStaticEvents() {
     document.getElementById('settings-panel').classList.add('hidden');
   });
   document.getElementById('mobile-back-btn').addEventListener('click', setPaneTree);
+  document.getElementById('mode-toggle-btn').addEventListener('click', toggleEditMode);
+  document.getElementById('mode-toggle-btn-tree').addEventListener('click', toggleEditMode);
   document.getElementById('font-size-range').addEventListener('input', (e) => {
     setFontSize(e.target.value);
   });
@@ -86,6 +89,7 @@ async function handleLogin() {
 }
 
 async function handleLogout() {
+  if (!confirm('ログアウトしますか?')) return;
   await sb.auth.signOut();
   currentUser = null;
   document.getElementById('app').classList.add('hidden');
@@ -95,8 +99,27 @@ async function handleLogout() {
 async function enterApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  setPaneTree(); // スマホでは最初にフォルダ一覧から始める
+  setPaneTree();   // スマホでは最初にフォルダ一覧から始める
+  setEditMode(false); // 事故防止のため、開くたびに必ず閲覧モードから始める
   await loadBookmarks();
+}
+
+// ============================================================
+// 閲覧モード/編集モードの切り替え
+// ============================================================
+function setEditMode(on) {
+  editMode = on;
+  document.body.classList.toggle('edit-mode', on);
+  const label = on ? '閲覧' : '編集';
+  document.querySelectorAll('.mode-toggle-btn').forEach(btn => {
+    btn.textContent = label;
+    btn.classList.toggle('active', on);
+  });
+  renderTree();
+  renderList();
+}
+function toggleEditMode() {
+  setEditMode(!editMode);
 }
 
 // ============================================================
@@ -227,6 +250,7 @@ function addDropTarget(rowEl, folderId) {
 }
 
 function initFolderSortable(el) {
+  if (!editMode) return; // 閲覧モードではドラッグ並び替えを無効化(誤操作防止)
   Sortable.create(el, {
     group: 'folders',
     animation: 150,
@@ -324,7 +348,7 @@ function renderList() {
     container.appendChild(renderItemRow(item));
   }
 
-  if (!searchQuery) {
+  if (!searchQuery && editMode) {
     Sortable.create(container, {
       animation: 150,
       onEnd: async (evt) => {
@@ -343,7 +367,7 @@ function renderItemRow(item) {
   const row = document.createElement('div');
   row.className = 'item-row';
   row.dataset.id = item.id;
-  row.draggable = true;
+  row.draggable = editMode; // 閲覧モードではドラッグ無効(スクロールの誤操作を防ぐ)
   row.addEventListener('dragstart', (e) => {
     e.dataTransfer.setData('text/bookmark-id', item.id);
   });
@@ -400,27 +424,29 @@ function renderItemRow(item) {
 
   row.appendChild(body);
 
-  const actions = document.createElement('div');
-  actions.className = 'item-actions';
+  if (editMode) {
+    const actions = document.createElement('div');
+    actions.className = 'item-actions';
 
-  const editBtn = document.createElement('button');
-  editBtn.textContent = '編集';
-  editBtn.addEventListener('click', () => openEditModal(item.type, item, item.parent_id));
-  actions.appendChild(editBtn);
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '編集';
+    editBtn.addEventListener('click', () => openEditModal(item.type, item, item.parent_id));
+    actions.appendChild(editBtn);
 
-  if (item.type === 'bookmark') {
-    const moveBtn = document.createElement('button');
-    moveBtn.textContent = '移動';
-    moveBtn.addEventListener('click', () => promptMove(item));
-    actions.appendChild(moveBtn);
+    if (item.type === 'bookmark') {
+      const moveBtn = document.createElement('button');
+      moveBtn.textContent = '移動';
+      moveBtn.addEventListener('click', () => promptMove(item));
+      actions.appendChild(moveBtn);
+    }
+
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '削除';
+    delBtn.addEventListener('click', () => handleDelete(item));
+    actions.appendChild(delBtn);
+
+    row.appendChild(actions);
   }
-
-  const delBtn = document.createElement('button');
-  delBtn.textContent = '削除';
-  delBtn.addEventListener('click', () => handleDelete(item));
-  actions.appendChild(delBtn);
-
-  row.appendChild(actions);
   return row;
 }
 
