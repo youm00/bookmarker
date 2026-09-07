@@ -358,7 +358,21 @@ function selectFolder(id, options = {}) {
 window.addEventListener('popstate', (e) => {
   if (!currentUser) return; // ログイン前は何もしない
   const folderId = e.state ? e.state.folderId : null;
-  selectFolder(folderId, { pushHistory: false });
+
+  if (folderId === null) {
+    // ルート(すべて)に戻る場合は、通常の初期状態と同じくフォルダ一覧(ツリー)に戻す。
+    // (これまでは常にリスト画面を強制していたため、「戻る」操作でルートに
+    //  たどり着いた時に、想定と違うリスト画面が表示されてしまっていた)
+    currentFolderId = null;
+    searchQuery = '';
+    document.getElementById('search-input').value = '';
+    renderTree();
+    renderBreadcrumb();
+    renderList();
+    setPaneTree();
+  } else {
+    selectFolder(folderId, { pushHistory: false });
+  }
 });
 
 // ============================================================
