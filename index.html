@@ -393,7 +393,8 @@
     </div>
     <div class="setting-item">
       <label>行間: <span id="line-height-value">1.6</span></label>
-      <input type="range" id="line-height-range" min="120" max="220" value="160">
+      <!-- minを80(0.8倍)に変更 -->
+      <input type="range" id="line-height-range" min="80" max="220" value="160">
     </div>
     <div class="setting-item">
       <label>
@@ -452,7 +453,7 @@
   <!-- トースト通知 -->
   <div id="toast" class="toast hidden"></div>
 
-  <!-- メインスクリプト (v16) -->
-  <script src="app.js?v=16"></script>
+  <!-- メインスクリプト (v17) -->
+  <script src="app.js?v=17"></script>
 </body>
 </html>
