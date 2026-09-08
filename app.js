@@ -5,8 +5,8 @@
 const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
-// 今読み込まれているコードのバージョン(設定パネルに表示する。動作確認用)
-const APP_VERSION = 'v13';
+// 今読み込まれているコードのバージョン(動作確認用)
+const APP_VERSION = 'v14';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -15,7 +15,7 @@ let currentUser = null;
 let allItems = [];          // DBから取得した全件(フラット)
 let itemsById = new Map();
 let childrenByParent = new Map(); // parentId(or 'root') -> [items] (position順)
-let currentFolderId = null; // null = ルート
+let currentFolderId = null; // null = 直置き(ルート)
 let searchQuery = '';
 let editMode = false;       // false = 閲覧モード, true = 編集モード
 
@@ -53,22 +53,30 @@ function bindStaticEvents() {
   document.getElementById('export-btn').addEventListener('click', handleExport);
 
   document.getElementById('settings-btn').addEventListener('click', toggleSettingsPanel);
-  document.getElementById('settings-btn-tree').addEventListener('click', toggleSettingsPanel);
+  const settingsBtnTree = document.getElementById('settings-btn-tree');
+  if (settingsBtnTree) settingsBtnTree.addEventListener('click', toggleSettingsPanel);
+  
   document.getElementById('settings-close-btn').addEventListener('click', () => {
     document.getElementById('settings-panel').classList.add('hidden');
   });
-  document.getElementById('mobile-back-btn').addEventListener('click', backToFolderTree);
+
+  const mobileBackBtn = document.getElementById('mobile-back-btn');
+  if (mobileBackBtn) {
+    mobileBackBtn.addEventListener('click', () => {
+      if (currentFolderId) {
+        const currentItem = itemsById.get(currentFolderId);
+        selectFolder(currentItem ? currentItem.parent_id : null);
+      }
+    });
+  }
+
   document.getElementById('mode-toggle-btn').addEventListener('click', toggleEditMode);
-  document.getElementById('mode-toggle-btn-tree').addEventListener('click', toggleEditMode);
-  document.getElementById('font-size-range').addEventListener('input', (e) => {
-    setFontSize(e.target.value);
-  });
-  document.getElementById('line-height-range').addEventListener('input', (e) => {
-    setLineHeight(e.target.value);
-  });
-  document.getElementById('dark-mode-toggle').addEventListener('change', (e) => {
-    setDarkMode(e.target.checked);
-  });
+  const modeToggleBtnTree = document.getElementById('mode-toggle-btn-tree');
+  if (modeToggleBtnTree) modeToggleBtnTree.addEventListener('click', toggleEditMode);
+
+  document.getElementById('font-size-range').addEventListener('input', (e) => setFontSize(e.target.value));
+  document.getElementById('line-height-range').addEventListener('input', (e) => setLineHeight(e.target.value));
+  document.getElementById('dark-mode-toggle').addEventListener('change', (e) => setDarkMode(e.target.checked));
 
   document.getElementById('edit-cancel-btn').addEventListener('click', closeEditModal);
   document.getElementById('edit-save-btn').addEventListener('click', saveEdit);
@@ -103,27 +111,17 @@ async function handleLogout() {
 async function enterApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  setEditMode(false); // 事故防止のため、開くたびに必ず閲覧モードから始める
+  setEditMode(false);
   await loadBookmarks();
 
+  // URLに ?folder=<ID> が指定されていればそのフォルダを開く、なければ直置き(null)を開く
   const params = new URLSearchParams(location.search);
   const targetFolderId = params.get('folder');
 
-  if (targetFolderId === 'root') {
-    // ?folder=root の場合は 2.png (ルートのリスト画面) を表示
-    selectFolder(null, { pushHistory: false });
-  } else if (targetFolderId && itemsById.has(targetFolderId)) {
-    // サブフォルダ指定の場合
+  if (targetFolderId && itemsById.has(targetFolderId)) {
     selectFolder(targetFolderId, { pushHistory: false });
   } else {
-    // パラメータなしの場合は 1.png (フォルダツリー画面) を表示
-    currentFolderId = null;
-    searchQuery = '';
-    document.getElementById('search-input').value = '';
-    renderTree();
-    renderBreadcrumb();
-    renderList();
-    setPaneTree();
+    selectFolder(null, { pushHistory: false });
     history.replaceState({ folderId: null }, '', location.pathname);
   }
 }
@@ -139,32 +137,10 @@ function setEditMode(on) {
     btn.textContent = label;
     btn.classList.toggle('active', on);
   });
-  renderTree();
   renderList();
 }
 function toggleEditMode() {
   setEditMode(!editMode);
-}
-
-// ============================================================
-// スマホ向け1ペイン表示の切り替え(PC幅では無視される)
-// ============================================================
-function setPaneTree() {
-  document.body.classList.remove('pane-list');
-  document.body.classList.add('pane-tree');
-}
-
-// 「←」ボタン専用: ツリー画面に戻り、URLから folder パラメータを削除する
-function backToFolderTree() {
-  setPaneTree();
-  const url = new URL(location.href);
-  url.searchParams.delete('folder');
-  history.pushState({ folderId: null }, '', url);
-}
-
-function setPaneList() {
-  document.body.classList.remove('pane-tree');
-  document.body.classList.add('pane-list');
 }
 
 function toggleSettingsPanel() {
@@ -172,14 +148,10 @@ function toggleSettingsPanel() {
   updateDebugInfo();
 }
 
-// 診断用: 今の状態(ペイン/フォルダ/URL)を設定パネルに表示する
 function updateDebugInfo() {
-  const pane = document.body.classList.contains('pane-tree') ? 'tree'
-    : document.body.classList.contains('pane-list') ? 'list' : '(なし)';
   const el = document.getElementById('debug-info');
   if (el) {
-    el.textContent =
-      `pane: ${pane} / folder: ${currentFolderId || '(root)'} / URL: ${location.href}`;
+    el.textContent = `folder: ${currentFolderId || '(ルート直置き)'} / URL: ${location.href}`;
   }
 }
 
@@ -198,7 +170,6 @@ async function loadBookmarks() {
   }
   allItems = data;
   rebuildIndexes();
-  renderTree();
   renderBreadcrumb();
   renderList();
 }
@@ -216,116 +187,18 @@ function rebuildIndexes() {
   }
 }
 
-function getFolders(parentId) {
-  return (childrenByParent.get(parentId || 'root') || []).filter(i => i.type === 'folder');
-}
 function getChildren(parentId) {
   return childrenByParent.get(parentId || 'root') || [];
 }
 
 // ============================================================
-// ツリー(フォルダ階層)描画
-// ============================================================
-function renderTree() {
-  const container = document.getElementById('tree');
-  container.innerHTML = '';
-  const rootList = document.createElement('div');
-  rootList.className = 'tree-children tree-root';
-  rootList.style.marginLeft = '0';
-  rootList.style.borderLeft = 'none';
-  rootList.dataset.parentId = 'root';
-  renderFolderChildren(null, rootList);
-  container.appendChild(rootList);
-
-  // ルート自体を選択するための行
-  const rootRow = document.createElement('div');
-  rootRow.className = 'tree-row' + (currentFolderId === null ? ' active' : '');
-  rootRow.textContent = '📁 すべて';
-  rootRow.style.fontWeight = '600';
-  rootRow.addEventListener('click', () => selectFolder(null));
-  addDropTarget(rootRow, null);
-  container.insertBefore(rootRow, container.firstChild);
-
-  initFolderSortable(rootList);
-}
-
-function renderFolderChildren(parentId, container) {
-  const folders = getFolders(parentId);
-  for (const folder of folders) {
-    const item = document.createElement('div');
-    item.className = 'tree-item';
-    item.dataset.id = folder.id;
-
-    const row = document.createElement('div');
-    row.className = 'tree-row' + (currentFolderId === folder.id ? ' active' : '');
-    row.innerHTML = `<span class="tree-toggle">▸</span><span class="tree-folder-icon">📁</span><span class="tree-label"></span>`;
-    row.querySelector('.tree-label').textContent = folder.title;
-    row.addEventListener('click', (e) => {
-      e.stopPropagation();
-      selectFolder(folder.id);
-    });
-    addDropTarget(row, folder.id);
-    item.appendChild(row);
-
-    const childContainer = document.createElement('div');
-    childContainer.className = 'tree-children';
-    childContainer.dataset.parentId = folder.id;
-    renderFolderChildren(folder.id, childContainer);
-    item.appendChild(childContainer);
-
-    container.appendChild(item);
-    initFolderSortable(childContainer);
-  }
-}
-
-function addDropTarget(rowEl, folderId) {
-  rowEl.addEventListener('dragover', (e) => {
-    if (e.dataTransfer.types.includes('text/bookmark-id')) {
-      e.preventDefault();
-      rowEl.classList.add('drag-over');
-    }
-  });
-  rowEl.addEventListener('dragleave', () => rowEl.classList.remove('drag-over'));
-  rowEl.addEventListener('drop', async (e) => {
-    rowEl.classList.remove('drag-over');
-    const id = e.dataTransfer.getData('text/bookmark-id');
-    if (!id) return;
-    e.preventDefault();
-    await moveItemToFolder(id, folderId);
-  });
-}
-
-function initFolderSortable(el) {
-  if (!editMode) return; // 閲覧モードではドラッグ並び替えを無効化(誤操作防止)
-  Sortable.create(el, {
-    group: 'folders',
-    animation: 150,
-    fallbackOnBody: true,
-    swapThreshold: 0.65,
-    onEnd: async (evt) => {
-      const newParentId = evt.to.dataset.parentId === 'root' ? null : evt.to.dataset.parentId;
-      const ids = Array.from(evt.to.children)
-        .map(child => child.dataset.id)
-        .filter(Boolean);
-      await persistFolderOrder(newParentId, ids);
-    }
-  });
-}
-
-async function persistFolderOrder(newParentId, orderedIds) {
-  const updates = orderedIds.map((id, index) => ({ id, position: index, parent_id: newParentId }));
-  for (const u of updates) {
-    await sb.from('bookmarks').update({ position: u.position, parent_id: u.parent_id }).eq('id', u.id);
-  }
-  await loadBookmarks();
-}
-
-// ============================================================
-// パンくず
+// パンくずナビゲーション
 // ============================================================
 function renderBreadcrumb() {
   const el = document.getElementById('breadcrumb');
+  if (!el) return;
   el.innerHTML = '';
+  
   const path = [];
   let cur = currentFolderId;
   while (cur) {
@@ -334,16 +207,17 @@ function renderBreadcrumb() {
     path.unshift(item);
     cur = item.parent_id;
   }
+
   const rootSpan = document.createElement('span');
   rootSpan.className = 'crumb';
-  rootSpan.textContent = 'すべて';
+  rootSpan.textContent = 'トップ（直置き）';
   rootSpan.addEventListener('click', () => selectFolder(null));
   el.appendChild(rootSpan);
 
   for (const item of path) {
     const sep = document.createElement('span');
     sep.className = 'sep';
-    sep.textContent = '/';
+    sep.textContent = ' / ';
     el.appendChild(sep);
 
     const span = document.createElement('span');
@@ -359,46 +233,25 @@ function selectFolder(id, options = {}) {
   currentFolderId = id;
   searchQuery = '';
   document.getElementById('search-input').value = '';
-  renderTree();
   renderBreadcrumb();
   renderList();
-  setPaneList(); // スマホでは中身の一覧画面(2.png)に切り替える
 
   if (pushHistory) {
     const url = new URL(location.href);
-    const targetFolder = id || 'root'; // 「すべて」の時は 'root'、フォルダの時はそのID
-    url.searchParams.set('folder', targetFolder);
-    history.pushState({ folderId: targetFolder }, '', url);
+    if (id) {
+      url.searchParams.set('folder', id);
+    } else {
+      url.searchParams.delete('folder');
+    }
+    history.pushState({ folderId: id }, '', url);
   }
 }
 
-// スマホの「戻る」ボタン(ブラウザバック)イベント処理
+// スマホの「戻る」ボタン処理
 window.addEventListener('popstate', (e) => {
   if (!currentUser) return;
   const folderId = e.state ? e.state.folderId : null;
-
-  if (folderId === 'root') {
-    // 2.png (「すべて」のリスト画面) に戻った場合
-    currentFolderId = null;
-    searchQuery = '';
-    document.getElementById('search-input').value = '';
-    renderTree();
-    renderBreadcrumb();
-    renderList();
-    setPaneList();
-  } else if (folderId && itemsById.has(folderId)) {
-    // サブフォルダに戻った場合
-    selectFolder(folderId, { pushHistory: false });
-  } else {
-    // 1.png (フォルダツリー画面) に戻った場合
-    currentFolderId = null;
-    searchQuery = '';
-    document.getElementById('search-input').value = '';
-    renderTree();
-    renderBreadcrumb();
-    renderList();
-    setPaneTree();
-  }
+  selectFolder(folderId, { pushHistory: false });
 });
 
 // ============================================================
@@ -406,6 +259,7 @@ window.addEventListener('popstate', (e) => {
 // ============================================================
 function renderList() {
   const container = document.getElementById('list');
+  if (!container) return;
   container.innerHTML = '';
 
   let items;
@@ -434,7 +288,7 @@ function renderList() {
   if (!searchQuery && editMode) {
     Sortable.create(container, {
       animation: 150,
-      onEnd: async (evt) => {
+      onEnd: async () => {
         const ids = Array.from(container.children).map(c => c.dataset.id).filter(Boolean);
         const updates = ids.map((id, index) => ({ id, position: index }));
         for (const u of updates) {
@@ -450,10 +304,6 @@ function renderItemRow(item) {
   const row = document.createElement('div');
   row.className = 'item-row';
   row.dataset.id = item.id;
-  row.draggable = editMode; // 閲覧モードではドラッグ無効(スクロールの誤操作を防ぐ)
-  row.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('text/bookmark-id', item.id);
-  });
 
   const icon = document.createElement('div');
   icon.className = 'item-favicon';
@@ -534,8 +384,8 @@ function renderItemRow(item) {
 }
 
 async function promptMove(item) {
-  const folders = allItems.filter(i => i.type === 'folder');
-  const options = ['(ルート)', ...folders.map(f => f.title)];
+  const folders = allItems.filter(i => i.type === 'folder' && i.id !== item.id);
+  const options = ['(トップ直置き)', ...folders.map(f => f.title)];
   const idx = prompt('移動先のフォルダ番号を入力してください:\n' +
     options.map((o, i) => `${i}: ${o}`).join('\n'));
   if (idx === null) return;
@@ -618,7 +468,7 @@ async function saveEdit() {
 }
 
 // ============================================================
-// インポート(ブラウザのお気に入りHTML / Netscape Bookmark形式)
+// インポート / エクスポート
 // ============================================================
 function handleImportFile(e) {
   const file = e.target.files[0];
@@ -626,7 +476,7 @@ function handleImportFile(e) {
   const reader = new FileReader();
   reader.onload = async (ev) => {
     try {
-      toast('インポート中…しばらくお待ちください');
+      toast('インポート中…');
       const tree = parseNetscapeHTML(ev.target.result);
       const rows = [];
       flattenImportTree(tree, null, rows, getChildren(null).length);
@@ -700,17 +550,8 @@ function parseDl(dlEl) {
   return nodes;
 }
 
-// ============================================================
-// エクスポート(Netscape Bookmark File Format で書き出し)
-// ============================================================
 function handleExport() {
-  const header =
-`<!DOCTYPE NETSCAPE-Bookmark-file-1>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
-<TITLE>Bookmarks</TITLE>
-<H1>Bookmarks</H1>
-<DL><p>
-`;
+  const header = `<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n`;
   const body = buildNetscapeHTML(null, 1);
   const footer = `</DL><p>\n`;
   const blob = new Blob([header + body + footer], { type: 'text/html' });
@@ -726,10 +567,7 @@ function buildNetscapeHTML(parentId, depth) {
   let out = '';
   for (const item of getChildren(parentId)) {
     if (item.type === 'folder') {
-      out += `${indent}<DT><H3>${escapeHtml(item.title)}</H3>\n`;
-      out += `${indent}<DL><p>\n`;
-      out += buildNetscapeHTML(item.id, depth + 1);
-      out += `${indent}</DL><p>\n`;
+      out += `${indent}<DT><H3>${escapeHtml(item.title)}</H3>\n${indent}<DL><p>\n${buildNetscapeHTML(item.id, depth + 1)}${indent}</DL><p>\n`;
     } else {
       out += `${indent}<DT><A HREF="${escapeHtml(item.url || '')}">${escapeHtml(item.title)}</A>\n`;
     }
@@ -738,15 +576,11 @@ function buildNetscapeHTML(parentId, depth) {
 }
 
 function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // ============================================================
-// 表示設定(文字サイズ・行間・ダークモード) localStorage永続化
+// 表示設定
 // ============================================================
 function loadSettings() {
   const fontSize = localStorage.getItem('bm_font_size') || '15';
