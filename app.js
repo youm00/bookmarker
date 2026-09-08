@@ -6,7 +6,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(動作確認用)
-const APP_VERSION = 'v14';
+const APP_VERSION = 'v15';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -114,7 +114,6 @@ async function enterApp() {
   setEditMode(false);
   await loadBookmarks();
 
-  // URLに ?folder=<ID> が指定されていればそのフォルダを開く、なければ直置き(null)を開く
   const params = new URLSearchParams(location.search);
   const targetFolderId = params.get('folder');
 
@@ -151,7 +150,7 @@ function toggleSettingsPanel() {
 function updateDebugInfo() {
   const el = document.getElementById('debug-info');
   if (el) {
-    el.textContent = `folder: ${currentFolderId || '(ルート直置き)'} / URL: ${location.href}`;
+    el.textContent = `folder: ${currentFolderId || '(トップ)'} / URL: ${location.href}`;
   }
 }
 
@@ -210,7 +209,7 @@ function renderBreadcrumb() {
 
   const rootSpan = document.createElement('span');
   rootSpan.className = 'crumb';
-  rootSpan.textContent = 'トップ（直置き）';
+  rootSpan.textContent = 'トップ';
   rootSpan.addEventListener('click', () => selectFolder(null));
   el.appendChild(rootSpan);
 
