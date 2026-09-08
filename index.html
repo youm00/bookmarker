@@ -114,21 +114,31 @@
     #app {
       max-width: 800px;
       margin: 0 auto;
-      padding: 15px;
+      padding: 12px;
     }
 
+    /* ヘッダー内にパンくずとアクションボタンを配置 */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 15px;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 15px;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+
+    .breadcrumb {
+      font-size: 17px;
+      font-weight: bold;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 10px;
     }
 
     .header-actions {
       display: flex;
       gap: 8px;
+      flex-shrink: 0;
     }
 
     .icon-btn {
@@ -139,12 +149,6 @@
       cursor: pointer;
       color: var(--text-color);
       background: var(--card-bg);
-    }
-
-    .breadcrumb-bar {
-      margin-bottom: 15px;
-      font-size: 16px;
-      font-weight: bold;
     }
 
     .crumb {
@@ -159,20 +163,6 @@
     .sep {
       color: var(--sub-text-color);
       margin: 0 4px;
-    }
-
-    .search-bar {
-      margin-bottom: 15px;
-    }
-
-    .search-bar input {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      background: var(--card-bg);
-      color: var(--text-color);
-      font-size: 15px;
     }
 
     /* リスト要素 */
@@ -276,6 +266,7 @@
       box-shadow: -2px 0 10px rgba(0,0,0,0.1);
       padding: 20px;
       z-index: 100;
+      overflow-y: auto;
     }
 
     .settings-panel h3 {
@@ -289,6 +280,15 @@
     .setting-item label {
       display: block;
       margin-bottom: 8px;
+    }
+
+    .setting-item input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-color);
+      color: var(--text-color);
     }
 
     /* モーダル */
@@ -356,25 +356,17 @@
   <!-- メインアプリ画面 -->
   <div id="app" class="hidden">
     <header>
-      <h2>My Bookmarks</h2>
+      <!-- 「My Bookmarks」の代わりに階層(パンくず)を設置 -->
+      <div id="breadcrumb" class="breadcrumb"></div>
+      
       <div class="header-actions">
         <button id="mode-toggle-btn" class="icon-btn mode-toggle-btn">編集</button>
         <button id="settings-btn" class="icon-btn">⚙</button>
       </div>
     </header>
 
-    <!-- パンくずバー（「←」ボタンは削除済み） -->
-    <div class="breadcrumb-bar">
-      <div id="breadcrumb" class="breadcrumb"></div>
-    </div>
-
-    <!-- 検索バー -->
-    <div class="search-bar">
-      <input type="text" id="search-input" placeholder="検索(タイトル・URL・タグ)">
-    </div>
-
     <!-- 編集モード時のみ表示される追加ボタン -->
-    <div class="edit-only" style="margin-bottom: 15px;">
+    <div class="edit-only" style="margin-bottom: 10px;">
       <button id="new-root-folder-btn" class="btn">+ フォルダ追加</button>
       <button id="add-bookmark-btn" class="btn">+ ブックマーク追加</button>
     </div>
@@ -383,9 +375,18 @@
     <div id="list" class="list-container"></div>
   </div>
 
-  <!-- 設定サイドパネル -->
+  <!-- 設定サイドパネル（検索バーをこちらへ移動） -->
   <div id="settings-panel" class="settings-panel hidden">
-    <h3>設定</h3>
+    <h3>設定 / 検索</h3>
+
+    <!-- 設定内に移動した検索バー -->
+    <div class="setting-item">
+      <label>ブックマーク検索</label>
+      <input type="text" id="search-input" placeholder="タイトル・URL・タグ">
+    </div>
+
+    <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border-color);">
+
     <div class="setting-item">
       <label>文字サイズ: <span id="font-size-value">15px</span></label>
       <input type="range" id="font-size-range" min="12" max="22" value="15">
@@ -399,7 +400,9 @@
         <input type="checkbox" id="dark-mode-toggle"> ダークモード
       </label>
     </div>
+
     <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border-color);">
+
     <div class="setting-item">
       <button id="import-btn" class="btn btn-block" style="margin-bottom: 10px;">HTMLインポート</button>
       <input type="file" id="import-file" accept=".html" class="hidden">
@@ -449,7 +452,7 @@
   <!-- トースト通知 -->
   <div id="toast" class="toast hidden"></div>
 
-  <!-- メインスクリプト (キャッシュ破棄用クエリ付与) -->
-  <script src="app.js?v=15"></script>
+  <!-- メインスクリプト (v16) -->
+  <script src="app.js?v=16"></script>
 </body>
 </html>
