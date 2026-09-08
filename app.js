@@ -1,12 +1,11 @@
 // ============================================================
-// 設定: SupabaseのプロジェクトURLとanonキーをここに入れてください
-// Supabaseダッシュボード > Project Settings > API から取得
+// 設定: SupabaseのプロジェクトURLとanonキー
 // ============================================================
 const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(動作確認用)
-const APP_VERSION = 'v17';
+const APP_VERSION = 'v18';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -18,6 +17,7 @@ let childrenByParent = new Map(); // parentId(or 'root') -> [items] (position順
 let currentFolderId = null; // null = 直置き(ルート)
 let searchQuery = '';
 let editMode = false;       // false = 閲覧モード, true = 編集モード
+let sortableInstance = null; // SortableJSのインスタンス保持用
 
 // ============================================================
 // 起動
@@ -260,6 +260,13 @@ window.addEventListener('popstate', (e) => {
 function renderList() {
   const container = document.getElementById('list');
   if (!container) return;
+
+  // 既存のSortableインスタンスがあれば破棄する（閲覧モード時の並べ替え防止）
+  if (sortableInstance) {
+    sortableInstance.destroy();
+    sortableInstance = null;
+  }
+
   container.innerHTML = '';
 
   let items;
@@ -285,8 +292,9 @@ function renderList() {
     container.appendChild(renderItemRow(item));
   }
 
+  // 編集モード時かつ非検索時のみドラッグ＆ドロップ(並べ替え)を有効化
   if (!searchQuery && editMode) {
-    Sortable.create(container, {
+    sortableInstance = Sortable.create(container, {
       animation: 150,
       onEnd: async () => {
         const ids = Array.from(container.children).map(c => c.dataset.id).filter(Boolean);
@@ -366,12 +374,11 @@ function renderItemRow(item) {
     editBtn.addEventListener('click', () => openEditModal(item.type, item, item.parent_id));
     actions.appendChild(editBtn);
 
-    if (item.type === 'bookmark') {
-      const moveBtn = document.createElement('button');
-      moveBtn.textContent = '移動';
-      moveBtn.addEventListener('click', () => promptMove(item));
-      actions.appendChild(moveBtn);
-    }
+    // ★ フォルダ・ブックマーク問わず「移動」ボタンを表示するように改善
+    const moveBtn = document.createElement('button');
+    moveBtn.textContent = '移動';
+    moveBtn.addEventListener('click', () => promptMove(item));
+    actions.appendChild(moveBtn);
 
     const delBtn = document.createElement('button');
     delBtn.textContent = '削除';
@@ -383,14 +390,34 @@ function renderItemRow(item) {
   return row;
 }
 
+// フォルダ・ブックマーク共通の階層移動ダイアログ
 async function promptMove(item) {
-  const folders = allItems.filter(i => i.type === 'folder' && i.id !== item.id);
+  // 自身および自分の配下にある子孫フォルダを移動先候補から除外するループチェック関数
+  const isDescendant = (parentId, targetId) => {
+    let cur = parentId;
+    while (cur) {
+      if (cur === targetId) return true;
+      const parent = itemsById.get(cur);
+      cur = parent ? parent.parent_id : null;
+    }
+    return false;
+  };
+
+  const folders = allItems.filter(i => {
+    if (i.type !== 'folder') return false;
+    if (i.id === item.id) return false; // 自分自身を除外
+    if (item.type === 'folder' && isDescendant(i.id, item.id)) return false; // 自分の配下フォルダを除外
+    return true;
+  });
+
   const options = ['(トップ直置き)', ...folders.map(f => f.title)];
-  const idx = prompt('移動先のフォルダ番号を入力してください:\n' +
+  const idx = prompt(`「${item.title}」の移動先フォルダ番号を入力してください:\n` +
     options.map((o, i) => `${i}: ${o}`).join('\n'));
+  
   if (idx === null) return;
   const i = parseInt(idx, 10);
   if (isNaN(i) || i < 0 || i >= options.length) return;
+  
   const newParentId = i === 0 ? null : folders[i - 1].id;
   await moveItemToFolder(item.id, newParentId);
 }
