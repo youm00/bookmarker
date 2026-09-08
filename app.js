@@ -337,12 +337,12 @@ function renderItemRow(item) {
   }
   body.appendChild(title);
 
-  if (item.type === 'bookmark' && item.url) {
-    const url = document.createElement('div');
-    url.className = 'item-url';
-    url.textContent = item.url;
-    body.appendChild(url);
-  }
+  // if (item.type === 'bookmark' && item.url) {
+  //   const url = document.createElement('div');
+  //   url.className = 'item-url';
+  //   url.textContent = item.url;
+  //   body.appendChild(url);
+  // }
 
   if (item.tags && item.tags.length) {
     const tagsEl = document.createElement('div');
