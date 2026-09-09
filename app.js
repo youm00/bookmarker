@@ -315,7 +315,7 @@ function renderItemRow(item) {
 
   const icon = document.createElement('div');
   icon.className = 'item-favicon';
-  icon.textContent = item.type === 'folder' ? '📁' : '🔖';
+  icon.textContent = item.type === 'folder' ? '📁' : '';
   row.appendChild(icon);
 
   const body = document.createElement('div');
