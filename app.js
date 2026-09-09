@@ -467,7 +467,7 @@ function closeEditModal() {
 async function saveEdit() {
   const id = document.getElementById('edit-id').value;
   const type = document.getElementById('edit-type').value;
-  const title = document.getElementById('edit-title').value.trim();
+  const title = document.getElementById('edit-title').value;
   const url = document.getElementById('edit-url').value.trim();
   const tags = document.getElementById('edit-tags').value.split(',').map(t => t.trim()).filter(Boolean);
   const memo = document.getElementById('edit-memo').value.trim();
