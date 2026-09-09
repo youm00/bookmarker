@@ -183,10 +183,13 @@
       border-bottom: none;
     }
 
-    .item-favicon {
-      margin-right: 12px;
-      font-size: 18px;
-    }
+.item-favicon {
+  width: 24px;          /* ← これを追加（アイコン領域の幅を一定に固定） */
+  text-align: center;   /* ← これを追加（フォルダアイコンを中央に揃える） */
+  margin-right: 12px;   /* 既存のまま */
+  font-size: 18px;      /* 既存のまま */
+  flex-shrink: 0;       /* ← これを追加（幅が潰れるのを防ぐ） */
+}
 
     .item-body {
       flex: 1;
