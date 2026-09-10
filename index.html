@@ -183,13 +183,13 @@
       border-bottom: none;
     }
 
-.item-favicon {
-  width: 24px;          /* ← これを追加（アイコン領域の幅を一定に固定） */
-  text-align: center;   /* ← これを追加（フォルダアイコンを中央に揃える） */
-  margin-right: 12px;   /* 既存のまま */
-  font-size: 18px;      /* 既存のまま */
-  flex-shrink: 0;       /* ← これを追加（幅が潰れるのを防ぐ） */
-}
+    .item-favicon {
+      width: 24px;          /* ← これを追加（アイコン領域の幅を一定に固定） */
+      text-align: center;   /* ← これを追加（フォルダアイコンを中央に揃える） */
+      margin-right: 12px;   /* 既存のまま */
+      font-size: 18px;      /* 既存のまま */
+      flex-shrink: 0;       /* ← これを追加（幅が潰れるのを防ぐ） */
+    }
 
     .item-body {
       flex: 1;
@@ -256,6 +256,17 @@
       padding: 40px;
       text-align: center;
       color: var(--sub-text-color);
+    }
+
+    /* 設定パネルの背景オーバーレイ（透明でタップを検出） */
+    .settings-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: transparent;
+      z-index: 99;
     }
 
     /* 設定パネル */
@@ -378,6 +389,9 @@
     <!-- ブックマーク / フォルダ 一覧 -->
     <div id="list" class="list-container"></div>
   </div>
+
+  <!-- 設定画面の背景タップ検知用エリア（透明） -->
+  <div id="settings-overlay" class="settings-overlay hidden"></div>
 
   <!-- 設定サイドパネル（検索バーをこちらへ移動） -->
   <div id="settings-panel" class="settings-panel hidden">
