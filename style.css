@@ -30,6 +30,20 @@
   --danger:    #E07A5F;
 }
 
+/* 追加: ダークブルーモード (XのDim風) */
+[data-theme="dim"] {
+  --bg:        #15202b;
+  --surface:   #1e2732;
+  --text:      #ffffff;
+  --text-dim:  #8b98a5;
+  --border:    #38444d;
+  --accent:    #1d9bf0;
+  --accent-soft: #22303c;
+  --tag:       #71c6fa;
+  --tag-soft:  #19364d;
+  --danger:    #f4212e;
+}
+
 * { box-sizing: border-box; }
 
 html, body {

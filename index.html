@@ -33,6 +33,17 @@
       --primary-hover: #8baad6;
     }
 
+    /* 追加: ダークブルーモード (XのDim風) */
+    [data-theme="dim"] {
+      --bg-color: #15202b;
+      --card-bg: #1e2732;
+      --text-color: #ffffff;
+      --sub-text-color: #8b98a5;
+      --border-color: #38444d;
+      --primary-color: #1d9bf0;
+      --primary-hover: #1a8cd8;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -184,11 +195,11 @@
     }
 
     .item-favicon {
-      width: 24px;          /* ← これを追加（アイコン領域の幅を一定に固定） */
-      text-align: center;   /* ← これを追加（フォルダアイコンを中央に揃える） */
-      margin-right: 12px;   /* 既存のまま */
-      font-size: 18px;      /* 既存のまま */
-      flex-shrink: 0;       /* ← これを追加（幅が潰れるのを防ぐ） */
+      width: 24px;
+      text-align: center;
+      margin-right: 12px;
+      font-size: 18px;
+      flex-shrink: 0;
     }
 
     .item-body {
@@ -200,7 +211,7 @@
       color: var(--text-color);
       text-decoration: none;
       font-weight: 500;
-      white-space: pre; /* ← これを追加 */
+      white-space: pre;
     }
 
     .item-title a:hover {
@@ -256,17 +267,6 @@
       padding: 40px;
       text-align: center;
       color: var(--sub-text-color);
-    }
-
-    /* 設定パネルの背景オーバーレイ（透明でタップを検出） */
-    .settings-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: transparent;
-      z-index: 99;
     }
 
     /* 設定パネル */
@@ -390,9 +390,6 @@
     <div id="list" class="list-container"></div>
   </div>
 
-  <!-- 設定画面の背景タップ検知用エリア（透明） -->
-  <div id="settings-overlay" class="settings-overlay hidden"></div>
-
   <!-- 設定サイドパネル（検索バーをこちらへ移動） -->
   <div id="settings-panel" class="settings-panel hidden">
     <h3>設定 / 検索</h3>
@@ -411,13 +408,16 @@
     </div>
     <div class="setting-item">
       <label>行間: <span id="line-height-value">1.6</span></label>
-      <!-- minを80(0.8倍)に変更 -->
       <input type="range" id="line-height-range" min="80" max="220" value="160">
     </div>
+    <!-- 変更: ダークモードチェックボックスをプルダウンに変更 -->
     <div class="setting-item">
-      <label>
-        <input type="checkbox" id="dark-mode-toggle"> ダークモード
-      </label>
+      <label>テーマ設定</label>
+      <select id="theme-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color);">
+        <option value="light">ライト</option>
+        <option value="dark">ダーク（ブラック）</option>
+        <option value="dim">ダークブルー</option>
+      </select>
     </div>
 
     <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border-color);">
