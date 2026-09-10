@@ -5,7 +5,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(動作確認用)
-const APP_VERSION = 'v18';
+const APP_VERSION = 'v19';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -52,13 +52,22 @@ function bindStaticEvents() {
   document.getElementById('import-file').addEventListener('change', handleImportFile);
   document.getElementById('export-btn').addEventListener('click', handleExport);
 
+  // 設定パネル開閉関連のイベント
   document.getElementById('settings-btn').addEventListener('click', toggleSettingsPanel);
   const settingsBtnTree = document.getElementById('settings-btn-tree');
   if (settingsBtnTree) settingsBtnTree.addEventListener('click', toggleSettingsPanel);
   
-  document.getElementById('settings-close-btn').addEventListener('click', () => {
-    document.getElementById('settings-panel').classList.add('hidden');
-  });
+  document.getElementById('settings-close-btn').addEventListener('click', () => closeSettingsPanel());
+
+  // 設定画面の外側（背景）タップで閉じる処理
+  const settingsPanel = document.getElementById('settings-panel');
+  if (settingsPanel) {
+    settingsPanel.addEventListener('click', (e) => {
+      if (e.target === settingsPanel) {
+        closeSettingsPanel();
+      }
+    });
+  }
 
   const mobileBackBtn = document.getElementById('mobile-back-btn');
   if (mobileBackBtn) {
@@ -142,9 +151,30 @@ function toggleEditMode() {
   setEditMode(!editMode);
 }
 
-function toggleSettingsPanel() {
-  document.getElementById('settings-panel').classList.toggle('hidden');
+// 設定画面の開閉ロジック
+function openSettingsPanel() {
+  document.getElementById('settings-panel').classList.remove('hidden');
   updateDebugInfo();
+  history.pushState({ settingsOpen: true }, '');
+}
+
+function closeSettingsPanel(fromPopState = false) {
+  const panel = document.getElementById('settings-panel');
+  if (!panel.classList.contains('hidden')) {
+    panel.classList.add('hidden');
+    if (!fromPopState && history.state && history.state.settingsOpen) {
+      history.back();
+    }
+  }
+}
+
+function toggleSettingsPanel() {
+  const panel = document.getElementById('settings-panel');
+  if (panel.classList.contains('hidden')) {
+    openSettingsPanel();
+  } else {
+    closeSettingsPanel();
+  }
 }
 
 function updateDebugInfo() {
@@ -247,9 +277,16 @@ function selectFolder(id, options = {}) {
   }
 }
 
-// スマホの「戻る」ボタン処理
+// スマホの「戻る」ボタン処理（設定モーダルとフォルダ階層に対応）
 window.addEventListener('popstate', (e) => {
   if (!currentUser) return;
+
+  const settingsPanel = document.getElementById('settings-panel');
+  if (settingsPanel && !settingsPanel.classList.contains('hidden')) {
+    closeSettingsPanel(true);
+    return;
+  }
+
   const folderId = e.state ? e.state.folderId : null;
   selectFolder(folderId, { pushHistory: false });
 });
@@ -261,7 +298,6 @@ function renderList() {
   const container = document.getElementById('list');
   if (!container) return;
 
-  // 既存のSortableインスタンスがあれば破棄する（閲覧モード時の並べ替え防止）
   if (sortableInstance) {
     sortableInstance.destroy();
     sortableInstance = null;
@@ -292,7 +328,6 @@ function renderList() {
     container.appendChild(renderItemRow(item));
   }
 
-  // 編集モード時かつ非検索時のみドラッグ＆ドロップ(並べ替え)を有効化
   if (!searchQuery && editMode) {
     sortableInstance = Sortable.create(container, {
       animation: 150,
@@ -337,13 +372,6 @@ function renderItemRow(item) {
   }
   body.appendChild(title);
 
-  // if (item.type === 'bookmark' && item.url) {
-  //   const url = document.createElement('div');
-  //   url.className = 'item-url';
-  //   url.textContent = item.url;
-  //   body.appendChild(url);
-  // }
-
   if (item.tags && item.tags.length) {
     const tagsEl = document.createElement('div');
     tagsEl.className = 'item-tags';
@@ -374,7 +402,6 @@ function renderItemRow(item) {
     editBtn.addEventListener('click', () => openEditModal(item.type, item, item.parent_id));
     actions.appendChild(editBtn);
 
-    // ★ フォルダ・ブックマーク問わず「移動」ボタンを表示するように改善
     const moveBtn = document.createElement('button');
     moveBtn.textContent = '移動';
     moveBtn.addEventListener('click', () => promptMove(item));
@@ -392,7 +419,6 @@ function renderItemRow(item) {
 
 // フォルダ・ブックマーク共通の階層移動ダイアログ
 async function promptMove(item) {
-  // 自身および自分の配下にある子孫フォルダを移動先候補から除外するループチェック関数
   const isDescendant = (parentId, targetId) => {
     let cur = parentId;
     while (cur) {
@@ -405,8 +431,8 @@ async function promptMove(item) {
 
   const folders = allItems.filter(i => {
     if (i.type !== 'folder') return false;
-    if (i.id === item.id) return false; // 自分自身を除外
-    if (item.type === 'folder' && isDescendant(i.id, item.id)) return false; // 自分の配下フォルダを除外
+    if (i.id === item.id) return false;
+    if (item.type === 'folder' && isDescendant(i.id, item.id)) return false;
     return true;
   });
 
@@ -467,6 +493,7 @@ function closeEditModal() {
 async function saveEdit() {
   const id = document.getElementById('edit-id').value;
   const type = document.getElementById('edit-type').value;
+  // インデント用スペースを保持するため .trim() を使用しない
   const title = document.getElementById('edit-title').value;
   const url = document.getElementById('edit-url').value.trim();
   const tags = document.getElementById('edit-tags').value.split(',').map(t => t.trim()).filter(Boolean);
