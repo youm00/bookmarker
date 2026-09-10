@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bookmark Manager</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- SortableJS (ドラッグ＆ドロップ用) -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body>
@@ -25,16 +23,15 @@
         <input type="password" id="login-password" placeholder="••••••••">
       </div>
       <button id="login-btn" class="btn btn-primary btn-block">ログイン</button>
-      <div id="login-error" class="error-msg"></div>
+      <div id="login-error" class="error-msg" style="color:red; margin-top:10px;"></div>
     </div>
   </div>
 
   <!-- メインアプリ画面 -->
   <div id="app" class="hidden">
-    <!-- ヘッダー / アクションバー -->
     <header class="app-header">
       <div class="header-left">
-        <button id="mobile-back-btn" class="btn btn-icon mobile-only" title="戻る">◀</button>
+        <button id="mobile-back-btn" class="btn btn-icon" title="戻る">◀</button>
         <h1 class="app-title">ブックマーク</h1>
       </div>
       <div class="header-right">
@@ -43,22 +40,13 @@
       </div>
     </header>
 
-    <!-- ツリー表示時のアクションバー -->
-    <div id="tree-actions" class="tree-actions">
-      <button id="mode-toggle-btn-tree" class="btn mode-toggle-btn">編集</button>
-      <button id="settings-btn-tree" class="btn btn-icon" title="設定">⚙️</button>
-    </div>
-
-    <!-- パンくずリスト -->
     <nav id="breadcrumb" class="breadcrumb"></nav>
 
-    <!-- アクションエリア（フォルダ・ブックマーク追加） -->
     <div class="action-bar edit-only">
       <button id="new-root-folder-btn" class="btn btn-secondary">＋ フォルダ追加</button>
       <button id="add-bookmark-btn" class="btn btn-primary">＋ ブックマーク追加</button>
     </div>
 
-    <!-- メインコンテンツリスト -->
     <main id="list" class="item-list"></main>
   </div>
 
@@ -67,7 +55,6 @@
     <div id="settings-panel" class="settings-panel">
       <h3>設定 / 検索</h3>
 
-      <!-- 検索バー -->
       <div class="setting-item">
         <label>ブックマーク検索</label>
         <input type="text" id="search-input" placeholder="タイトル・URL・タグ">
@@ -97,13 +84,13 @@
         <button id="export-btn" class="btn btn-block">HTMLエクスポート</button>
       </div>
       <div class="setting-item">
-        <button id="logout-btn" class="btn btn-block" style="background-color: #e63946;">ログアウト</button>
+        <button id="logout-btn" class="btn btn-block" style="background-color: #e63946; color: white;">ログアウト</button>
       </div>
       <div style="font-size: 11px; color: var(--sub-text-color); margin-top: 20px;">
         <div id="version-label"></div>
         <div id="debug-info"></div>
       </div>
-      <button id="settings-close-btn" class="btn" style="margin-top: 20px;">閉じる</button>
+      <button id="settings-close-btn" class="btn btn-block" style="margin-top: 20px;">閉じる</button>
     </div>
   </div>
 
@@ -131,17 +118,16 @@
         <textarea id="edit-memo" rows="3" placeholder="メモを残せます"></textarea>
       </div>
 
-      <div class="modal-actions">
+      <div class="modal-actions" style="display:flex; justify-content:flex-end; gap:10px;">
         <button id="edit-cancel-btn" class="btn btn-secondary">キャンセル</button>
         <button id="edit-save-btn" class="btn btn-primary">保存</button>
       </div>
     </div>
   </div>
 
-  <!-- トースト通知 -->
   <div id="toast" class="toast hidden"></div>
 
-  <!-- アプリケーションスクリプト (v22) -->
-  <script src="app.js?v=22"></script>
+  <!-- JSスクリプト (v23) -->
+  <script src="app.js?v=23"></script>
 </body>
 </html>

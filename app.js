@@ -4,20 +4,19 @@
 const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
-// 今読み込まれているコードのバージョン(動作確認用)
-const APP_VERSION = 'v22';
+const APP_VERSION = 'v23';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ---------- グローバル状態 ----------
 let currentUser = null;
-let allItems = [];          // DBから取得した全件(フラット)
+let allItems = [];
 let itemsById = new Map();
-let childrenByParent = new Map(); // parentId(or 'root') -> [items] (position順)
-let currentFolderId = null; // null = 直置き(ルート)
+let childrenByParent = new Map();
+let currentFolderId = null;
 let searchQuery = '';
-let editMode = false;       // false = 閲覧モード, true = 編集モード
-let sortableInstance = null; // SortableJSのインスタンス保持用
+let editMode = false;
+let sortableInstance = null;
 
 // ============================================================
 // 起動
@@ -36,30 +35,46 @@ async function init() {
 }
 
 function bindStaticEvents() {
-  document.getElementById('login-btn').addEventListener('click', handleLogin);
-  document.getElementById('logout-btn').addEventListener('click', handleLogout);
-  document.getElementById('version-label').textContent = 'バージョン: ' + APP_VERSION;
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) loginBtn.addEventListener('click', handleLogin);
 
-  document.getElementById('new-root-folder-btn').addEventListener('click', () => openEditModal('folder', null, currentFolderId));
-  document.getElementById('add-bookmark-btn').addEventListener('click', () => openEditModal('bookmark', null, currentFolderId));
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
-  document.getElementById('search-input').addEventListener('input', (e) => {
-    searchQuery = e.target.value.trim();
-    renderList();
-  });
+  const versionEl = document.getElementById('version-label');
+  if (versionEl) versionEl.textContent = 'バージョン: ' + APP_VERSION;
 
-  document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
-  document.getElementById('import-file').addEventListener('change', handleImportFile);
-  document.getElementById('export-btn').addEventListener('click', handleExport);
+  const newRootFolderBtn = document.getElementById('new-root-folder-btn');
+  if (newRootFolderBtn) newRootFolderBtn.addEventListener('click', () => openEditModal('folder', null, currentFolderId));
 
-  // ---------- 設定パネル開閉イベント ----------
-  document.getElementById('settings-btn').addEventListener('click', openSettingsPanel);
-  const settingsBtnTree = document.getElementById('settings-btn-tree');
-  if (settingsBtnTree) settingsBtnTree.addEventListener('click', openSettingsPanel);
-  
-  document.getElementById('settings-close-btn').addEventListener('click', closeSettingsPanel);
+  const addBookmarkBtn = document.getElementById('add-bookmark-btn');
+  if (addBookmarkBtn) addBookmarkBtn.addEventListener('click', () => openEditModal('bookmark', null, currentFolderId));
 
-  // 背景（暗い部分・緑枠エリア）タップで閉じる
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim();
+      renderList();
+    });
+  }
+
+  const importBtn = document.getElementById('import-btn');
+  if (importBtn) importBtn.addEventListener('click', () => document.getElementById('import-file').click());
+
+  const importFile = document.getElementById('import-file');
+  if (importFile) importFile.addEventListener('change', handleImportFile);
+
+  const exportBtn = document.getElementById('export-btn');
+  if (exportBtn) exportBtn.addEventListener('click', handleExport);
+
+  // ---------- 設定パネルの開閉設定 ----------
+  const settingsBtn = document.getElementById('settings-btn');
+  if (settingsBtn) settingsBtn.addEventListener('click', openSettingsPanel);
+
+  const settingsCloseBtn = document.getElementById('settings-close-btn');
+  if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettingsPanel);
+
+  // 背景（暗い部分）をタップで閉じる
   const settingsOverlay = document.getElementById('settings-overlay');
   if (settingsOverlay) {
     settingsOverlay.addEventListener('click', (e) => {
@@ -69,16 +84,23 @@ function bindStaticEvents() {
     });
   }
 
-  document.getElementById('mode-toggle-btn').addEventListener('click', toggleEditMode);
-  const modeToggleBtnTree = document.getElementById('mode-toggle-btn-tree');
-  if (modeToggleBtnTree) modeToggleBtnTree.addEventListener('click', toggleEditMode);
+  const modeToggleBtn = document.getElementById('mode-toggle-btn');
+  if (modeToggleBtn) modeToggleBtn.addEventListener('click', toggleEditMode);
 
-  document.getElementById('font-size-range').addEventListener('input', (e) => setFontSize(e.target.value));
-  document.getElementById('line-height-range').addEventListener('input', (e) => setLineHeight(e.target.value));
-  document.getElementById('dark-mode-toggle').addEventListener('change', (e) => setDarkMode(e.target.checked));
+  const fontSizeRange = document.getElementById('font-size-range');
+  if (fontSizeRange) fontSizeRange.addEventListener('input', (e) => setFontSize(e.target.value));
 
-  document.getElementById('edit-cancel-btn').addEventListener('click', closeEditModal);
-  document.getElementById('edit-save-btn').addEventListener('click', saveEdit);
+  const lineHeightRange = document.getElementById('line-height-range');
+  if (lineHeightRange) lineHeightRange.addEventListener('input', (e) => setLineHeight(e.target.value));
+
+  const darkModeToggle = document.getElementById('dark-mode-toggle');
+  if (darkModeToggle) darkModeToggle.addEventListener('change', (e) => setDarkMode(e.target.checked));
+
+  const editCancelBtn = document.getElementById('edit-cancel-btn');
+  if (editCancelBtn) editCancelBtn.addEventListener('click', closeEditModal);
+
+  const editSaveBtn = document.getElementById('edit-save-btn');
+  if (editSaveBtn) editSaveBtn.addEventListener('click', saveEdit);
 }
 
 // ============================================================
@@ -88,11 +110,11 @@ async function handleLogin() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   const errEl = document.getElementById('login-error');
-  errEl.textContent = '';
+  if (errEl) errEl.textContent = '';
 
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) {
-    errEl.textContent = 'ログインに失敗しました: ' + error.message;
+    if (errEl) errEl.textContent = 'ログインに失敗しました: ' + error.message;
     return;
   }
   currentUser = data.user;
@@ -257,11 +279,9 @@ function selectFolder(id, options = {}) {
   }
 }
 
-// ブラウザの「戻る」ボタン対応
 window.addEventListener('popstate', (e) => {
   if (!currentUser) return;
 
-  // 設定が開いている場合は設定を閉じる
   const settingsOverlay = document.getElementById('settings-overlay');
   if (settingsOverlay && !settingsOverlay.classList.contains('hidden')) {
     closeSettingsPanel();
@@ -621,9 +641,14 @@ function loadSettings() {
   const lineHeight = localStorage.getItem('bm_line_height') || '160';
   const dark = localStorage.getItem('bm_dark') === '1';
 
-  document.getElementById('font-size-range').value = fontSize;
-  document.getElementById('line-height-range').value = lineHeight;
-  document.getElementById('dark-mode-toggle').checked = dark;
+  const fsRange = document.getElementById('font-size-range');
+  if (fsRange) fsRange.value = fontSize;
+
+  const lhRange = document.getElementById('line-height-range');
+  if (lhRange) lhRange.value = lineHeight;
+
+  const dmToggle = document.getElementById('dark-mode-toggle');
+  if (dmToggle) dmToggle.checked = dark;
 
   setFontSize(fontSize);
   setLineHeight(lineHeight);
@@ -632,14 +657,16 @@ function loadSettings() {
 
 function setFontSize(px) {
   document.documentElement.style.setProperty('--font-size', px + 'px');
-  document.getElementById('font-size-value').textContent = px + 'px';
+  const fsVal = document.getElementById('font-size-value');
+  if (fsVal) fsVal.textContent = px + 'px';
   localStorage.setItem('bm_font_size', px);
 }
 
 function setLineHeight(v) {
   const ratio = (v / 100).toFixed(1);
   document.documentElement.style.setProperty('--line-height', ratio);
-  document.getElementById('line-height-value').textContent = ratio;
+  const lhVal = document.getElementById('line-height-value');
+  if (lhVal) lhVal.textContent = ratio;
   localStorage.setItem('bm_line_height', v);
 }
 
@@ -654,6 +681,7 @@ function setDarkMode(on) {
 let toastTimer = null;
 function toast(message) {
   const el = document.getElementById('toast');
+  if (!el) return;
   el.textContent = message;
   el.classList.remove('hidden');
   clearTimeout(toastTimer);
