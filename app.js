@@ -1,18 +1,27 @@
+// ============================================================
+// 設定: SupabaseのプロジェクトURLとanonキー
+// ============================================================
 const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
-const APP_VERSION = 'v24';
+// 今読み込まれているコードのバージョン(動作確認用)
+const APP_VERSION = 'v18';
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// ---------- グローバル状態 ----------
 let currentUser = null;
-let allItems = [];
+let allItems = [];          // DBから取得した全件(フラット)
 let itemsById = new Map();
-let childrenByParent = new Map();
-let currentFolderId = null;
+let childrenByParent = new Map(); // parentId(or 'root') -> [items] (position順)
+let currentFolderId = null; // null = 直置き(ルート)
 let searchQuery = '';
-let editMode = false;
-let sortableInstance = null;
+let editMode = false;       // false = 閲覧モード, true = 編集モード
+let sortableInstance = null; // SortableJSのインスタンス保持用
 
+// ============================================================
+// 起動
+// ============================================================
 window.addEventListener('DOMContentLoaded', init);
 
 async function init() {
@@ -27,90 +36,64 @@ async function init() {
 }
 
 function bindStaticEvents() {
-  const loginBtn = document.getElementById('login-btn');
-  if (loginBtn) loginBtn.addEventListener('click', handleLogin);
+  document.getElementById('login-btn').addEventListener('click', handleLogin);
+  document.getElementById('logout-btn').addEventListener('click', handleLogout);
+  document.getElementById('version-label').textContent = 'バージョン: ' + APP_VERSION;
 
-  const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+  document.getElementById('new-root-folder-btn').addEventListener('click', () => openEditModal('folder', null, currentFolderId));
+  document.getElementById('add-bookmark-btn').addEventListener('click', () => openEditModal('bookmark', null, currentFolderId));
 
-  const versionEl = document.getElementById('version-label');
-  if (versionEl) versionEl.textContent = 'バージョン: ' + APP_VERSION;
-
-  const newRootFolderBtn = document.getElementById('new-root-folder-btn');
-  if (newRootFolderBtn) newRootFolderBtn.addEventListener('click', () => openEditModal('folder', null, currentFolderId));
-
-  const addBookmarkBtn = document.getElementById('add-bookmark-btn');
-  if (addBookmarkBtn) addBookmarkBtn.addEventListener('click', () => openEditModal('bookmark', null, currentFolderId));
-
-  const searchInput = document.getElementById('search-input');
-  if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      searchQuery = e.target.value.trim();
-      renderList();
-    });
-  }
-
-  const importBtn = document.getElementById('import-btn');
-  if (importBtn) importBtn.addEventListener('click', () => document.getElementById('import-file').click());
-
-  const importFile = document.getElementById('import-file');
-  if (importFile) importFile.addEventListener('change', handleImportFile);
-
-  const exportBtn = document.getElementById('export-btn');
-  if (exportBtn) exportBtn.addEventListener('click', handleExport);
-
-  // 設定ボタン（ヘッダー/サイドバーの複数ボタンに対応）
-  document.querySelectorAll('#settings-btn, #settings-btn-tree').forEach(btn => {
-    btn.addEventListener('click', openSettingsPanel);
+  document.getElementById('search-input').addEventListener('input', (e) => {
+    searchQuery = e.target.value.trim();
+    renderList();
   });
 
-  const settingsCloseBtn = document.getElementById('settings-close-btn');
-  if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettingsPanel);
+  document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
+  document.getElementById('import-file').addEventListener('change', handleImportFile);
+  document.getElementById('export-btn').addEventListener('click', handleExport);
 
-  const settingsOverlay = document.getElementById('settings-overlay');
-  if (settingsOverlay) {
-    settingsOverlay.addEventListener('click', (e) => {
-      if (e.target === settingsOverlay) closeSettingsPanel();
-    });
-  }
-
-  document.querySelectorAll('.mode-toggle-btn').forEach(btn => {
-    btn.addEventListener('click', toggleEditMode);
+  document.getElementById('settings-btn').addEventListener('click', toggleSettingsPanel);
+  const settingsBtnTree = document.getElementById('settings-btn-tree');
+  if (settingsBtnTree) settingsBtnTree.addEventListener('click', toggleSettingsPanel);
+  
+  document.getElementById('settings-close-btn').addEventListener('click', () => {
+    document.getElementById('settings-panel').classList.add('hidden');
   });
 
   const mobileBackBtn = document.getElementById('mobile-back-btn');
   if (mobileBackBtn) {
     mobileBackBtn.addEventListener('click', () => {
-      document.body.classList.remove('pane-list');
-      document.body.classList.add('pane-tree');
+      if (currentFolderId) {
+        const currentItem = itemsById.get(currentFolderId);
+        selectFolder(currentItem ? currentItem.parent_id : null);
+      }
     });
   }
 
-  const fontSizeRange = document.getElementById('font-size-range');
-  if (fontSizeRange) fontSizeRange.addEventListener('input', (e) => setFontSize(e.target.value));
+  document.getElementById('mode-toggle-btn').addEventListener('click', toggleEditMode);
+  const modeToggleBtnTree = document.getElementById('mode-toggle-btn-tree');
+  if (modeToggleBtnTree) modeToggleBtnTree.addEventListener('click', toggleEditMode);
 
-  const lineHeightRange = document.getElementById('line-height-range');
-  if (lineHeightRange) lineHeightRange.addEventListener('input', (e) => setLineHeight(e.target.value));
+  document.getElementById('font-size-range').addEventListener('input', (e) => setFontSize(e.target.value));
+  document.getElementById('line-height-range').addEventListener('input', (e) => setLineHeight(e.target.value));
+  document.getElementById('dark-mode-toggle').addEventListener('change', (e) => setDarkMode(e.target.checked));
 
-  const darkModeToggle = document.getElementById('dark-mode-toggle');
-  if (darkModeToggle) darkModeToggle.addEventListener('change', (e) => setDarkMode(e.target.checked));
-
-  const editCancelBtn = document.getElementById('edit-cancel-btn');
-  if (editCancelBtn) editCancelBtn.addEventListener('click', closeEditModal);
-
-  const editSaveBtn = document.getElementById('edit-save-btn');
-  if (editSaveBtn) editSaveBtn.addEventListener('click', saveEdit);
+  document.getElementById('edit-cancel-btn').addEventListener('click', closeEditModal);
+  document.getElementById('edit-save-btn').addEventListener('click', saveEdit);
 }
 
+// ============================================================
+// 認証
+// ============================================================
 async function handleLogin() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   const errEl = document.getElementById('login-error');
-  if (errEl) errEl.textContent = '';
+  errEl.textContent = '';
 
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) {
-    if (errEl) errEl.textContent = 'ログインに失敗しました: ' + error.message;
+    errEl.textContent = 'ログインに失敗しました: ' + error.message;
     return;
   }
   currentUser = data.user;
@@ -142,6 +125,9 @@ async function enterApp() {
   }
 }
 
+// ============================================================
+// 閲覧モード/編集モードの切り替え
+// ============================================================
 function setEditMode(on) {
   editMode = on;
   document.body.classList.toggle('edit-mode', on);
@@ -152,33 +138,25 @@ function setEditMode(on) {
   });
   renderList();
 }
-
 function toggleEditMode() {
   setEditMode(!editMode);
 }
 
-function openSettingsPanel() {
-  const overlay = document.getElementById('settings-overlay');
-  if (overlay) {
-    overlay.classList.remove('hidden');
-    updateDebugInfo();
-  }
-}
-
-function closeSettingsPanel() {
-  const overlay = document.getElementById('settings-overlay');
-  if (overlay) {
-    overlay.classList.add('hidden');
-  }
+function toggleSettingsPanel() {
+  document.getElementById('settings-panel').classList.toggle('hidden');
+  updateDebugInfo();
 }
 
 function updateDebugInfo() {
   const el = document.getElementById('debug-info');
   if (el) {
-    el.textContent = `folder: ${currentFolderId || '(トップ)'}`;
+    el.textContent = `folder: ${currentFolderId || '(トップ)'} / URL: ${location.href}`;
   }
 }
 
+// ============================================================
+// データ読み込み
+// ============================================================
 async function loadBookmarks() {
   const { data, error } = await sb
     .from('bookmarks')
@@ -212,6 +190,9 @@ function getChildren(parentId) {
   return childrenByParent.get(parentId || 'root') || [];
 }
 
+// ============================================================
+// パンくずナビゲーション
+// ============================================================
 function renderBreadcrumb() {
   const el = document.getElementById('breadcrumb');
   if (!el) return;
@@ -252,10 +233,6 @@ function selectFolder(id, options = {}) {
   searchQuery = '';
   const searchInput = document.getElementById('search-input');
   if (searchInput) searchInput.value = '';
-  
-  document.body.classList.remove('pane-tree');
-  document.body.classList.add('pane-list');
-
   renderBreadcrumb();
   renderList();
 
@@ -270,21 +247,21 @@ function selectFolder(id, options = {}) {
   }
 }
 
+// スマホの「戻る」ボタン処理
 window.addEventListener('popstate', (e) => {
   if (!currentUser) return;
-  const settingsOverlay = document.getElementById('settings-overlay');
-  if (settingsOverlay && !settingsOverlay.classList.contains('hidden')) {
-    closeSettingsPanel();
-    return;
-  }
   const folderId = e.state ? e.state.folderId : null;
   selectFolder(folderId, { pushHistory: false });
 });
 
+// ============================================================
+// メインリスト描画
+// ============================================================
 function renderList() {
   const container = document.getElementById('list');
   if (!container) return;
 
+  // 既存のSortableインスタンスがあれば破棄する（閲覧モード時の並べ替え防止）
   if (sortableInstance) {
     sortableInstance.destroy();
     sortableInstance = null;
@@ -315,6 +292,7 @@ function renderList() {
     container.appendChild(renderItemRow(item));
   }
 
+  // 編集モード時かつ非検索時のみドラッグ＆ドロップ(並べ替え)を有効化
   if (!searchQuery && editMode) {
     sortableInstance = Sortable.create(container, {
       animation: 150,
@@ -337,7 +315,7 @@ function renderItemRow(item) {
 
   const icon = document.createElement('div');
   icon.className = 'item-favicon';
-  icon.textContent = item.type === 'folder' ? '📁' : '📄';
+  icon.textContent = item.type === 'folder' ? '📁' : '';
   row.appendChild(icon);
 
   const body = document.createElement('div');
@@ -359,12 +337,12 @@ function renderItemRow(item) {
   }
   body.appendChild(title);
 
-  if (item.url && item.type === 'bookmark') {
-    const urlEl = document.createElement('div');
-    urlEl.className = 'item-url';
-    urlEl.textContent = item.url;
-    body.appendChild(urlEl);
-  }
+  // if (item.type === 'bookmark' && item.url) {
+  //   const url = document.createElement('div');
+  //   url.className = 'item-url';
+  //   url.textContent = item.url;
+  //   body.appendChild(url);
+  // }
 
   if (item.tags && item.tags.length) {
     const tagsEl = document.createElement('div');
@@ -396,6 +374,12 @@ function renderItemRow(item) {
     editBtn.addEventListener('click', () => openEditModal(item.type, item, item.parent_id));
     actions.appendChild(editBtn);
 
+    // ★ フォルダ・ブックマーク問わず「移動」ボタンを表示するように改善
+    const moveBtn = document.createElement('button');
+    moveBtn.textContent = '移動';
+    moveBtn.addEventListener('click', () => promptMove(item));
+    actions.appendChild(moveBtn);
+
     const delBtn = document.createElement('button');
     delBtn.textContent = '削除';
     delBtn.addEventListener('click', () => handleDelete(item));
@@ -404,6 +388,48 @@ function renderItemRow(item) {
     row.appendChild(actions);
   }
   return row;
+}
+
+// フォルダ・ブックマーク共通の階層移動ダイアログ
+async function promptMove(item) {
+  // 自身および自分の配下にある子孫フォルダを移動先候補から除外するループチェック関数
+  const isDescendant = (parentId, targetId) => {
+    let cur = parentId;
+    while (cur) {
+      if (cur === targetId) return true;
+      const parent = itemsById.get(cur);
+      cur = parent ? parent.parent_id : null;
+    }
+    return false;
+  };
+
+  const folders = allItems.filter(i => {
+    if (i.type !== 'folder') return false;
+    if (i.id === item.id) return false; // 自分自身を除外
+    if (item.type === 'folder' && isDescendant(i.id, item.id)) return false; // 自分の配下フォルダを除外
+    return true;
+  });
+
+  const options = ['(トップ直置き)', ...folders.map(f => f.title)];
+  const idx = prompt(`「${item.title}」の移動先フォルダ番号を入力してください:\n` +
+    options.map((o, i) => `${i}: ${o}`).join('\n'));
+  
+  if (idx === null) return;
+  const i = parseInt(idx, 10);
+  if (isNaN(i) || i < 0 || i >= options.length) return;
+  
+  const newParentId = i === 0 ? null : folders[i - 1].id;
+  await moveItemToFolder(item.id, newParentId);
+}
+
+async function moveItemToFolder(id, newParentId) {
+  if (id === newParentId) return;
+  const siblingCount = getChildren(newParentId).length;
+  const { error } = await sb.from('bookmarks')
+    .update({ parent_id: newParentId, position: siblingCount })
+    .eq('id', id);
+  if (error) { toast('移動エラー: ' + error.message); return; }
+  await loadBookmarks();
 }
 
 async function handleDelete(item) {
@@ -415,6 +441,9 @@ async function handleDelete(item) {
   await loadBookmarks();
 }
 
+// ============================================================
+// 追加/編集モーダル
+// ============================================================
 function openEditModal(type, existingItem, parentId) {
   document.getElementById('edit-modal-title').textContent =
     existingItem ? (type === 'folder' ? 'フォルダを編集' : 'ブックマークを編集') :
@@ -465,6 +494,9 @@ async function saveEdit() {
   await loadBookmarks();
 }
 
+// ============================================================
+// インポート / エクスポート
+// ============================================================
 function handleImportFile(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -475,6 +507,7 @@ function handleImportFile(e) {
       const tree = parseNetscapeHTML(ev.target.result);
       const rows = [];
       flattenImportTree(tree, null, rows, getChildren(null).length);
+
       await insertRowsInBatches(rows);
       toast(`インポートが完了しました(${rows.length}件)`);
       await loadBookmarks();
@@ -573,19 +606,17 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// ============================================================
+// 表示設定
+// ============================================================
 function loadSettings() {
   const fontSize = localStorage.getItem('bm_font_size') || '15';
   const lineHeight = localStorage.getItem('bm_line_height') || '160';
   const dark = localStorage.getItem('bm_dark') === '1';
 
-  const fsRange = document.getElementById('font-size-range');
-  if (fsRange) fsRange.value = fontSize;
-
-  const lhRange = document.getElementById('line-height-range');
-  if (lhRange) lhRange.value = lineHeight;
-
-  const dmToggle = document.getElementById('dark-mode-toggle');
-  if (dmToggle) dmToggle.checked = dark;
+  document.getElementById('font-size-range').value = fontSize;
+  document.getElementById('line-height-range').value = lineHeight;
+  document.getElementById('dark-mode-toggle').checked = dark;
 
   setFontSize(fontSize);
   setLineHeight(lineHeight);
@@ -594,16 +625,14 @@ function loadSettings() {
 
 function setFontSize(px) {
   document.documentElement.style.setProperty('--font-size', px + 'px');
-  const fsVal = document.getElementById('font-size-value');
-  if (fsVal) fsVal.textContent = px + 'px';
+  document.getElementById('font-size-value').textContent = px + 'px';
   localStorage.setItem('bm_font_size', px);
 }
 
 function setLineHeight(v) {
   const ratio = (v / 100).toFixed(1);
   document.documentElement.style.setProperty('--line-height', ratio);
-  const lhVal = document.getElementById('line-height-value');
-  if (lhVal) lhVal.textContent = ratio;
+  document.getElementById('line-height-value').textContent = ratio;
   localStorage.setItem('bm_line_height', v);
 }
 
@@ -612,10 +641,12 @@ function setDarkMode(on) {
   localStorage.setItem('bm_dark', on ? '1' : '0');
 }
 
+// ============================================================
+// トースト通知
+// ============================================================
 let toastTimer = null;
 function toast(message) {
   const el = document.getElementById('toast');
-  if (!el) return;
   el.textContent = message;
   el.classList.remove('hidden');
   clearTimeout(toastTimer);

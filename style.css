@@ -195,17 +195,6 @@ body.edit-mode .tree-actions.edit-only {
   align-items: center;
 }
 
-/* ---------- 設定パネル ＆ オーバーレイ ---------- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
 .settings-panel {
   position: fixed;
   top: 12px;
@@ -244,7 +233,6 @@ body.edit-mode .tree-actions.edit-only {
 }
 .settings-section .text-btn {
   align-self: flex-start;
-  width: 100%;
 }
 .text-btn.danger {
   color: var(--danger);
@@ -253,12 +241,10 @@ body.edit-mode .tree-actions.edit-only {
 .settings-panel label {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
 }
 .checkbox-row {
   align-items: center;
-  justify-content: flex-start !important;
 }
 
 .list {
@@ -474,7 +460,10 @@ body.edit-mode .tree-actions.edit-only {
 }
 
 /* ============================================================
-   スマホなど狭い画面: 2ペイン(サイドバー+メイン)
+   スマホなど狭い画面: 2ペイン(サイドバー+メイン)を
+   1ペインずつ切り替えて表示する(bookmarker.sakura.ne.jp的な操作感)
+   body.pane-tree  = フォルダ一覧を全画面表示
+   body.pane-list  = 中身の一覧を全画面表示(初期値)
    ============================================================ */
 @media (max-width: 768px) {
   .app {

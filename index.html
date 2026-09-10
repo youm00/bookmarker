@@ -3,129 +3,461 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bookmark Manager</title>
-  <link rel="stylesheet" href="style.css">
+  <title>My Bookmarks</title>
+  
+  <!-- Supabase JS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- SortableJS (ドラッグ＆ドロップ並べ替え用) -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  
+  <style>
+    :root {
+      --font-size: 15px;
+      --line-height: 1.6;
+      --bg-color: #f8f9fa;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --sub-text-color: #666666;
+      --border-color: #e9ecef;
+      --primary-color: #4a6fa5;
+      --primary-hover: #3b5984;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --sub-text-color: #aaa;
+      --border-color: #333333;
+      --primary-color: #6c8ebf;
+      --primary-hover: #8baad6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: var(--font-size);
+      line-height: var(--line-height);
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* ログイン画面 */
+    .login-container {
+      max-width: 400px;
+      margin: 80px auto;
+      padding: 30px;
+      background: var(--card-bg);
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .login-container h2 {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: var(--primary-color);
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-block {
+      width: 100%;
+      padding: 12px;
+    }
+
+    .error-msg {
+      color: #e63946;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    /* メインアプリ構造 */
+    #app {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 6px 12px 12px 12px; /* [上] [右] [下] [左] の順 */
+    }
+
+    /* ヘッダー内にパンくずとアクションボタンを配置 */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 2px;
+      margin-bottom: 2px;
+    }
+
+    .breadcrumb {
+      font-size: 17px;
+      font-weight: bold;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 10px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .icon-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-color);
+      background: var(--card-bg);
+    }
+
+    .crumb {
+      cursor: pointer;
+      color: var(--primary-color);
+    }
+
+    .crumb:hover {
+      text-decoration: underline;
+    }
+
+    .sep {
+      color: var(--sub-text-color);
+      margin: 0 4px;
+    }
+
+    /* リスト要素 */
+    .list-container {
+      background: var(--card-bg);
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .item-row {
+      display: flex;
+      align-items: center;
+      padding: 6px 15px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .item-row:last-child {
+      border-bottom: none;
+    }
+
+.item-favicon {
+  width: 24px;          /* ← これを追加（アイコン領域の幅を一定に固定） */
+  text-align: center;   /* ← これを追加（フォルダアイコンを中央に揃える） */
+  margin-right: 12px;   /* 既存のまま */
+  font-size: 18px;      /* 既存のまま */
+  flex-shrink: 0;       /* ← これを追加（幅が潰れるのを防ぐ） */
+}
+
+    .item-body {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .item-title a {
+      color: var(--text-color);
+      text-decoration: none;
+      font-weight: 500;
+      white-space: pre; /* ← これを追加 */
+    }
+
+    .item-title a:hover {
+      text-decoration: underline;
+      color: var(--primary-color);
+    }
+
+    .item-url {
+      font-size: 12px;
+      color: var(--sub-text-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-tags {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .item-tag {
+      font-size: 11px;
+      background: var(--border-color);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: var(--sub-text-color);
+    }
+
+    .item-memo {
+      font-size: 12px;
+      color: var(--sub-text-color);
+      margin-top: 4px;
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 6px;
+      margin-left: 10px;
+    }
+
+    .item-actions button {
+      padding: 4px 8px;
+      font-size: 12px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-color);
+      color: var(--text-color);
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .empty-state {
+      padding: 40px;
+      text-align: center;
+      color: var(--sub-text-color);
+    }
+
+    /* 設定パネル */
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 300px;
+      height: 100%;
+      background: var(--card-bg);
+      border-left: 1px solid var(--border-color);
+      box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+      padding: 20px;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .settings-panel h3 {
+      margin-bottom: 20px;
+    }
+
+    .setting-item {
+      margin-bottom: 20px;
+    }
+
+    .setting-item label {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .setting-item input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    /* モーダル */
+    .modal-overlay {
+      position: fixed;
+      top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+    }
+
+    .modal {
+      background: var(--card-bg);
+      width: 90%;
+      max-width: 500px;
+      padding: 20px;
+      border-radius: 8px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    /* トースト */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      z-index: 300;
+    }
+
+    /* 編集モード用のボタン表示制御 */
+    .edit-only { display: none; }
+    body.edit-mode .edit-only { display: inline-block; }
+  </style>
 </head>
-<body class="pane-list">
+<body>
 
   <!-- ログイン画面 -->
-  <div id="login-screen" class="login-screen">
-    <div class="login-box">
-      <h1>ブックマーク管理</h1>
-      <p class="login-sub">ログインしてください</p>
-      <input type="email" id="login-email" placeholder="メールアドレス">
-      <input type="password" id="login-password" placeholder="パスワード">
-      <button id="login-btn">ログイン</button>
-      <p id="login-error" class="login-error"></p>
+  <div id="login-screen" class="login-container">
+    <h2>ログイン</h2>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input type="email" id="login-email">
     </div>
+    <div class="form-group">
+      <label>パスワード</label>
+      <input type="password" id="login-password">
+    </div>
+    <button id="login-btn" class="btn btn-block">ログイン</button>
+    <div id="login-error" class="error-msg"></div>
   </div>
 
   <!-- メインアプリ画面 -->
-  <div id="app" class="app hidden">
-    <!-- サイドバー -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <span class="brand">ブックマーク</span>
-        <div class="sidebar-header-actions">
-          <button id="mode-toggle-btn-tree" class="text-btn mode-toggle-btn">編集</button>
-          <button id="settings-btn-tree" class="icon-btn" title="設定">⚙️</button>
-        </div>
+  <div id="app" class="hidden">
+    <header>
+      <!-- 「My Bookmarks」の代わりに階層(パンくず)を設置 -->
+      <div id="breadcrumb" class="breadcrumb"></div>
+      
+      <div class="header-actions">
+        <button id="mode-toggle-btn" class="icon-btn mode-toggle-btn">編集</button>
+        <button id="settings-btn" class="icon-btn">⚙</button>
       </div>
-      <div class="tree-actions edit-only">
-        <button id="new-root-folder-btn" class="text-btn primary" style="width: 100%;">＋ フォルダ追加</button>
-      </div>
-      <div id="tree" class="tree"></div>
-    </aside>
+    </header>
 
-    <!-- メインエリア -->
-    <main class="main">
-      <header class="toolbar">
-        <button id="mobile-back-btn" class="icon-btn mobile-only" title="戻る">◀</button>
-        <div id="breadcrumb" class="breadcrumb"></div>
-        <input type="text" id="search-input" class="search-input" placeholder="検索 (タイトル・URL・タグ)">
-        <div class="toolbar-actions">
-          <button id="add-bookmark-btn" class="text-btn primary edit-only">＋ ブックマーク</button>
-          <button id="mode-toggle-btn" class="text-btn mode-toggle-btn">編集</button>
-          <button id="settings-btn" class="icon-btn" title="設定">⚙️</button>
-        </div>
-      </header>
-      <div id="list" class="list"></div>
-    </main>
-  </div>
-
-  <!-- 設定パネル＋背景オーバーレイ -->
-  <div id="settings-overlay" class="modal-overlay hidden">
-    <div id="settings-panel" class="settings-panel">
-      <div class="settings-section">
-        <h3>表示設定</h3>
-        <label>
-          文字サイズ: <span id="font-size-value">15px</span>
-          <input type="range" id="font-size-range" min="12" max="22" value="15">
-        </label>
-        <label>
-          行間: <span id="line-height-value">1.6</span>
-          <input type="range" id="line-height-range" min="80" max="220" value="160">
-        </label>
-        <label class="checkbox-row">
-          <input type="checkbox" id="dark-mode-toggle"> ダークモード
-        </label>
-      </div>
-
-      <div class="settings-section">
-        <h3>データ</h3>
-        <button id="import-btn" class="text-btn">HTMLインポート</button>
-        <input type="file" id="import-file" accept=".html" class="hidden">
-        <button id="export-btn" class="text-btn">HTMLエクスポート</button>
-      </div>
-
-      <div class="settings-section">
-        <h3>アカウント</h3>
-        <button id="logout-btn" class="text-btn danger">ログアウト</button>
-      </div>
-
-      <div style="font-size: 11px; color: var(--text-dim); margin-top: 10px;">
-        <div id="version-label"></div>
-        <div id="debug-info"></div>
-      </div>
-      <button id="settings-close-btn" class="text-btn" style="margin-top: 10px;">閉じる</button>
+    <!-- 編集モード時のみ表示される追加ボタン -->
+    <div class="edit-only" style="margin-bottom: 10px;">
+      <button id="new-root-folder-btn" class="btn">+ フォルダ追加</button>
+      <button id="add-bookmark-btn" class="btn">+ ブックマーク追加</button>
     </div>
+
+    <!-- ブックマーク / フォルダ 一覧 -->
+    <div id="list" class="list-container"></div>
   </div>
 
-  <!-- 追加・編集用モーダルダイアログ -->
-  <div id="edit-modal" class="modal hidden">
-    <div class="modal-box">
-      <h2 id="edit-modal-title">編集</h2>
+  <!-- 設定サイドパネル（検索バーをこちらへ移動） -->
+  <div id="settings-panel" class="settings-panel hidden">
+    <h3>設定 / 検索</h3>
+
+    <!-- 設定内に移動した検索バー -->
+    <div class="setting-item">
+      <label>ブックマーク検索</label>
+      <input type="text" id="search-input" placeholder="タイトル・URL・タグ">
+    </div>
+
+    <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border-color);">
+
+    <div class="setting-item">
+      <label>文字サイズ: <span id="font-size-value">15px</span></label>
+      <input type="range" id="font-size-range" min="12" max="22" value="15">
+    </div>
+    <div class="setting-item">
+      <label>行間: <span id="line-height-value">1.6</span></label>
+      <!-- minを80(0.8倍)に変更 -->
+      <input type="range" id="line-height-range" min="80" max="220" value="160">
+    </div>
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" id="dark-mode-toggle"> ダークモード
+      </label>
+    </div>
+
+    <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border-color);">
+
+    <div class="setting-item">
+      <button id="import-btn" class="btn btn-block" style="margin-bottom: 10px;">HTMLインポート</button>
+      <input type="file" id="import-file" accept=".html" class="hidden">
+      <button id="export-btn" class="btn btn-block">HTMLエクスポート</button>
+    </div>
+    <div class="setting-item">
+      <button id="logout-btn" class="btn btn-block" style="background-color: #e63946;">ログアウト</button>
+    </div>
+    <div style="font-size: 11px; color: var(--sub-text-color); margin-top: 20px;">
+      <div id="version-label"></div>
+      <div id="debug-info"></div>
+    </div>
+    <button id="settings-close-btn" class="btn" style="margin-top: 20px;">閉じる</button>
+  </div>
+
+  <!-- 追加・編集モーダル -->
+  <div id="edit-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3 id="edit-modal-title">編集</h3>
       <input type="hidden" id="edit-id">
       <input type="hidden" id="edit-type">
       
-      <label>
-        タイトル
-        <input type="text" id="edit-title" placeholder="タイトル">
-      </label>
-      <label id="edit-url-row">
-        URL
-        <input type="url" id="edit-url" placeholder="https://example.com">
-      </label>
-      <label>
-        タグ (カンマ区切り)
+      <div class="form-group" style="margin-top: 15px;">
+        <label>タイトル</label>
+        <input type="text" id="edit-title">
+      </div>
+      <div class="form-group" id="edit-url-row">
+        <label>URL</label>
+        <input type="text" id="edit-url">
+      </div>
+      <div class="form-group">
+        <label>タグ (カンマ区切り)</label>
         <input type="text" id="edit-tags" placeholder="news, tech">
-      </label>
-      <label>
-        メモ
-        <textarea id="edit-memo" rows="3" placeholder="メモ"></textarea>
-      </label>
+      </div>
+      <div class="form-group">
+        <label>メモ</label>
+        <input type="text" id="edit-memo">
+      </div>
 
       <div class="modal-actions">
-        <button id="edit-cancel-btn" class="text-btn">キャンセル</button>
-        <button id="edit-save-btn" class="text-btn primary">保存</button>
+        <button id="edit-cancel-btn" class="btn" style="background:#888;">キャンセル</button>
+        <button id="edit-save-btn" class="btn">保存</button>
       </div>
     </div>
   </div>
 
+  <!-- トースト通知 -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="app.js?v=24"></script>
+  <!-- メインスクリプト (v20) -->
+  <script src="app.js?v=20"></script>
 </body>
 </html>
