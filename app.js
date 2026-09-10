@@ -5,7 +5,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(動作確認用)
-const APP_VERSION = 'v21';
+const APP_VERSION = 'v22';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -52,29 +52,19 @@ function bindStaticEvents() {
   document.getElementById('import-file').addEventListener('change', handleImportFile);
   document.getElementById('export-btn').addEventListener('click', handleExport);
 
-  // 設定パネル開閉関連のイベント
-  document.getElementById('settings-btn').addEventListener('click', toggleSettingsPanel);
+  // ---------- 設定パネル開閉イベント ----------
+  document.getElementById('settings-btn').addEventListener('click', openSettingsPanel);
   const settingsBtnTree = document.getElementById('settings-btn-tree');
-  if (settingsBtnTree) settingsBtnTree.addEventListener('click', toggleSettingsPanel);
+  if (settingsBtnTree) settingsBtnTree.addEventListener('click', openSettingsPanel);
   
-  document.getElementById('settings-close-btn').addEventListener('click', () => closeSettingsPanel());
+  document.getElementById('settings-close-btn').addEventListener('click', closeSettingsPanel);
 
-  // 背景エリア（緑枠・背景）タップで閉じる処理
+  // 背景（暗い部分・緑枠エリア）タップで閉じる
   const settingsOverlay = document.getElementById('settings-overlay');
   if (settingsOverlay) {
     settingsOverlay.addEventListener('click', (e) => {
       if (e.target === settingsOverlay) {
         closeSettingsPanel();
-      }
-    });
-  }
-
-  const mobileBackBtn = document.getElementById('mobile-back-btn');
-  if (mobileBackBtn) {
-    mobileBackBtn.addEventListener('click', () => {
-      if (currentFolderId) {
-        const currentItem = itemsById.get(currentFolderId);
-        selectFolder(currentItem ? currentItem.parent_id : null);
       }
     });
   }
@@ -135,7 +125,7 @@ async function enterApp() {
 }
 
 // ============================================================
-// 閲覧モード/編集モードの切り替え
+// モード切替 & 設定パネル制御
 // ============================================================
 function setEditMode(on) {
   editMode = on;
@@ -147,34 +137,23 @@ function setEditMode(on) {
   });
   renderList();
 }
+
 function toggleEditMode() {
   setEditMode(!editMode);
 }
 
-// 設定画面の開閉ロジック
 function openSettingsPanel() {
   const overlay = document.getElementById('settings-overlay');
-  if (overlay) overlay.classList.remove('hidden');
-  updateDebugInfo();
-  history.pushState({ settingsOpen: true }, '');
-}
-
-function closeSettingsPanel(fromPopState = false) {
-  const overlay = document.getElementById('settings-overlay');
-  if (overlay && !overlay.classList.contains('hidden')) {
-    overlay.classList.add('hidden');
-    if (!fromPopState && history.state && history.state.settingsOpen) {
-      history.back();
-    }
+  if (overlay) {
+    overlay.classList.remove('hidden');
+    updateDebugInfo();
   }
 }
 
-function toggleSettingsPanel() {
+function closeSettingsPanel() {
   const overlay = document.getElementById('settings-overlay');
-  if (overlay && overlay.classList.contains('hidden')) {
-    openSettingsPanel();
-  } else {
-    closeSettingsPanel();
+  if (overlay) {
+    overlay.classList.add('hidden');
   }
 }
 
@@ -278,13 +257,14 @@ function selectFolder(id, options = {}) {
   }
 }
 
-// スマホの「戻る」ボタン処理
+// ブラウザの「戻る」ボタン対応
 window.addEventListener('popstate', (e) => {
   if (!currentUser) return;
 
+  // 設定が開いている場合は設定を閉じる
   const settingsOverlay = document.getElementById('settings-overlay');
   if (settingsOverlay && !settingsOverlay.classList.contains('hidden')) {
-    closeSettingsPanel(true);
+    closeSettingsPanel();
     return;
   }
 
@@ -418,7 +398,7 @@ function renderItemRow(item) {
   return row;
 }
 
-// フォルダ・ブックマーク共通の階層移動ダイアログ
+// 移動ダイアログ
 async function promptMove(item) {
   const isDescendant = (parentId, targetId) => {
     let cur = parentId;
