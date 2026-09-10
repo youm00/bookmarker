@@ -1,14 +1,9 @@
-// ============================================================
-// 設定: SupabaseのプロジェクトURLとanonキー
-// ============================================================
 const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
-const APP_VERSION = 'v23';
-
+const APP_VERSION = 'v24';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ---------- グローバル状態 ----------
 let currentUser = null;
 let allItems = [];
 let itemsById = new Map();
@@ -18,9 +13,6 @@ let searchQuery = '';
 let editMode = false;
 let sortableInstance = null;
 
-// ============================================================
-// 起動
-// ============================================================
 window.addEventListener('DOMContentLoaded', init);
 
 async function init() {
@@ -67,25 +59,32 @@ function bindStaticEvents() {
   const exportBtn = document.getElementById('export-btn');
   if (exportBtn) exportBtn.addEventListener('click', handleExport);
 
-  // ---------- 設定パネルの開閉設定 ----------
-  const settingsBtn = document.getElementById('settings-btn');
-  if (settingsBtn) settingsBtn.addEventListener('click', openSettingsPanel);
+  // 設定ボタン（ヘッダー/サイドバーの複数ボタンに対応）
+  document.querySelectorAll('#settings-btn, #settings-btn-tree').forEach(btn => {
+    btn.addEventListener('click', openSettingsPanel);
+  });
 
   const settingsCloseBtn = document.getElementById('settings-close-btn');
   if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettingsPanel);
 
-  // 背景（暗い部分）をタップで閉じる
   const settingsOverlay = document.getElementById('settings-overlay');
   if (settingsOverlay) {
     settingsOverlay.addEventListener('click', (e) => {
-      if (e.target === settingsOverlay) {
-        closeSettingsPanel();
-      }
+      if (e.target === settingsOverlay) closeSettingsPanel();
     });
   }
 
-  const modeToggleBtn = document.getElementById('mode-toggle-btn');
-  if (modeToggleBtn) modeToggleBtn.addEventListener('click', toggleEditMode);
+  document.querySelectorAll('.mode-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', toggleEditMode);
+  });
+
+  const mobileBackBtn = document.getElementById('mobile-back-btn');
+  if (mobileBackBtn) {
+    mobileBackBtn.addEventListener('click', () => {
+      document.body.classList.remove('pane-list');
+      document.body.classList.add('pane-tree');
+    });
+  }
 
   const fontSizeRange = document.getElementById('font-size-range');
   if (fontSizeRange) fontSizeRange.addEventListener('input', (e) => setFontSize(e.target.value));
@@ -103,9 +102,6 @@ function bindStaticEvents() {
   if (editSaveBtn) editSaveBtn.addEventListener('click', saveEdit);
 }
 
-// ============================================================
-// 認証
-// ============================================================
 async function handleLogin() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
@@ -146,9 +142,6 @@ async function enterApp() {
   }
 }
 
-// ============================================================
-// モード切替 & 設定パネル制御
-// ============================================================
 function setEditMode(on) {
   editMode = on;
   document.body.classList.toggle('edit-mode', on);
@@ -182,13 +175,10 @@ function closeSettingsPanel() {
 function updateDebugInfo() {
   const el = document.getElementById('debug-info');
   if (el) {
-    el.textContent = `folder: ${currentFolderId || '(トップ)'} / URL: ${location.href}`;
+    el.textContent = `folder: ${currentFolderId || '(トップ)'}`;
   }
 }
 
-// ============================================================
-// データ読み込み
-// ============================================================
 async function loadBookmarks() {
   const { data, error } = await sb
     .from('bookmarks')
@@ -222,9 +212,6 @@ function getChildren(parentId) {
   return childrenByParent.get(parentId || 'root') || [];
 }
 
-// ============================================================
-// パンくずナビゲーション
-// ============================================================
 function renderBreadcrumb() {
   const el = document.getElementById('breadcrumb');
   if (!el) return;
@@ -265,6 +252,10 @@ function selectFolder(id, options = {}) {
   searchQuery = '';
   const searchInput = document.getElementById('search-input');
   if (searchInput) searchInput.value = '';
+  
+  document.body.classList.remove('pane-tree');
+  document.body.classList.add('pane-list');
+
   renderBreadcrumb();
   renderList();
 
@@ -281,20 +272,15 @@ function selectFolder(id, options = {}) {
 
 window.addEventListener('popstate', (e) => {
   if (!currentUser) return;
-
   const settingsOverlay = document.getElementById('settings-overlay');
   if (settingsOverlay && !settingsOverlay.classList.contains('hidden')) {
     closeSettingsPanel();
     return;
   }
-
   const folderId = e.state ? e.state.folderId : null;
   selectFolder(folderId, { pushHistory: false });
 });
 
-// ============================================================
-// メインリスト描画
-// ============================================================
 function renderList() {
   const container = document.getElementById('list');
   if (!container) return;
@@ -351,7 +337,7 @@ function renderItemRow(item) {
 
   const icon = document.createElement('div');
   icon.className = 'item-favicon';
-  icon.textContent = item.type === 'folder' ? '📁' : '';
+  icon.textContent = item.type === 'folder' ? '📁' : '📄';
   row.appendChild(icon);
 
   const body = document.createElement('div');
@@ -372,6 +358,13 @@ function renderItemRow(item) {
     title.appendChild(a);
   }
   body.appendChild(title);
+
+  if (item.url && item.type === 'bookmark') {
+    const urlEl = document.createElement('div');
+    urlEl.className = 'item-url';
+    urlEl.textContent = item.url;
+    body.appendChild(urlEl);
+  }
 
   if (item.tags && item.tags.length) {
     const tagsEl = document.createElement('div');
@@ -403,11 +396,6 @@ function renderItemRow(item) {
     editBtn.addEventListener('click', () => openEditModal(item.type, item, item.parent_id));
     actions.appendChild(editBtn);
 
-    const moveBtn = document.createElement('button');
-    moveBtn.textContent = '移動';
-    moveBtn.addEventListener('click', () => promptMove(item));
-    actions.appendChild(moveBtn);
-
     const delBtn = document.createElement('button');
     delBtn.textContent = '削除';
     delBtn.addEventListener('click', () => handleDelete(item));
@@ -416,47 +404,6 @@ function renderItemRow(item) {
     row.appendChild(actions);
   }
   return row;
-}
-
-// 移動ダイアログ
-async function promptMove(item) {
-  const isDescendant = (parentId, targetId) => {
-    let cur = parentId;
-    while (cur) {
-      if (cur === targetId) return true;
-      const parent = itemsById.get(cur);
-      cur = parent ? parent.parent_id : null;
-    }
-    return false;
-  };
-
-  const folders = allItems.filter(i => {
-    if (i.type !== 'folder') return false;
-    if (i.id === item.id) return false;
-    if (item.type === 'folder' && isDescendant(i.id, item.id)) return false;
-    return true;
-  });
-
-  const options = ['(トップ直置き)', ...folders.map(f => f.title)];
-  const idx = prompt(`「${item.title}」の移動先フォルダ番号を入力してください:\n` +
-    options.map((o, i) => `${i}: ${o}`).join('\n'));
-  
-  if (idx === null) return;
-  const i = parseInt(idx, 10);
-  if (isNaN(i) || i < 0 || i >= options.length) return;
-  
-  const newParentId = i === 0 ? null : folders[i - 1].id;
-  await moveItemToFolder(item.id, newParentId);
-}
-
-async function moveItemToFolder(id, newParentId) {
-  if (id === newParentId) return;
-  const siblingCount = getChildren(newParentId).length;
-  const { error } = await sb.from('bookmarks')
-    .update({ parent_id: newParentId, position: siblingCount })
-    .eq('id', id);
-  if (error) { toast('移動エラー: ' + error.message); return; }
-  await loadBookmarks();
 }
 
 async function handleDelete(item) {
@@ -468,9 +415,6 @@ async function handleDelete(item) {
   await loadBookmarks();
 }
 
-// ============================================================
-// 追加/編集モーダル
-// ============================================================
 function openEditModal(type, existingItem, parentId) {
   document.getElementById('edit-modal-title').textContent =
     existingItem ? (type === 'folder' ? 'フォルダを編集' : 'ブックマークを編集') :
@@ -521,9 +465,6 @@ async function saveEdit() {
   await loadBookmarks();
 }
 
-// ============================================================
-// インポート / エクスポート
-// ============================================================
 function handleImportFile(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -534,7 +475,6 @@ function handleImportFile(e) {
       const tree = parseNetscapeHTML(ev.target.result);
       const rows = [];
       flattenImportTree(tree, null, rows, getChildren(null).length);
-
       await insertRowsInBatches(rows);
       toast(`インポートが完了しました(${rows.length}件)`);
       await loadBookmarks();
@@ -633,9 +573,6 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ============================================================
-// 表示設定
-// ============================================================
 function loadSettings() {
   const fontSize = localStorage.getItem('bm_font_size') || '15';
   const lineHeight = localStorage.getItem('bm_line_height') || '160';
@@ -675,9 +612,6 @@ function setDarkMode(on) {
   localStorage.setItem('bm_dark', on ? '1' : '0');
 }
 
-// ============================================================
-// トースト通知
-// ============================================================
 let toastTimer = null;
 function toast(message) {
   const el = document.getElementById('toast');
