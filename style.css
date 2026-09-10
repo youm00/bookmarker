@@ -30,6 +30,20 @@
   --danger:    #E07A5F;
 }
 
+/* 少し柔らかい濃紺テーマ */
+[data-theme="dark-blue"] {
+  --bg:        #17212B;
+  --surface:   #1F2D3A;
+  --text:      #E6EDF3;
+  --text-dim:  #9EACB9;
+  --border:    #334657;
+  --accent:    #78A9D2;
+  --accent-soft: #294052;
+  --tag:       #D7B18A;
+  --tag-soft:  #3A322A;
+  --danger:    #E07A5F;
+}
+
 * { box-sizing: border-box; }
 
 html, body {

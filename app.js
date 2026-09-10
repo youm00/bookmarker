@@ -5,7 +5,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(動作確認用)
-const APP_VERSION = 'v18';
+const APP_VERSION = 'v19';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -82,7 +82,7 @@ function bindStaticEvents() {
 
   document.getElementById('font-size-range').addEventListener('input', (e) => setFontSize(e.target.value));
   document.getElementById('line-height-range').addEventListener('input', (e) => setLineHeight(e.target.value));
-  document.getElementById('dark-mode-toggle').addEventListener('change', (e) => setDarkMode(e.target.checked));
+  document.getElementById('theme-select').addEventListener('change', (e) => setTheme(e.target.value));
 
   document.getElementById('edit-cancel-btn').addEventListener('click', closeEditModal);
   document.getElementById('edit-save-btn').addEventListener('click', saveEdit);
@@ -654,15 +654,20 @@ function escapeHtml(str) {
 function loadSettings() {
   const fontSize = localStorage.getItem('bm_font_size') || '15';
   const lineHeight = localStorage.getItem('bm_line_height') || '160';
-  const dark = localStorage.getItem('bm_dark') === '1';
+
+  // 新しい3テーマ設定を優先。旧版のbm_darkもそのまま引き継ぐ。
+  let theme = localStorage.getItem('bm_theme');
+  if (!theme) {
+    theme = localStorage.getItem('bm_dark') === '1' ? 'dark' : 'light';
+  }
 
   document.getElementById('font-size-range').value = fontSize;
   document.getElementById('line-height-range').value = lineHeight;
-  document.getElementById('dark-mode-toggle').checked = dark;
+  document.getElementById('theme-select').value = theme;
 
   setFontSize(fontSize);
   setLineHeight(lineHeight);
-  setDarkMode(dark);
+  setTheme(theme);
 }
 
 function setFontSize(px) {
@@ -678,9 +683,15 @@ function setLineHeight(v) {
   localStorage.setItem('bm_line_height', v);
 }
 
-function setDarkMode(on) {
-  document.documentElement.dataset.theme = on ? 'dark' : '';
-  localStorage.setItem('bm_dark', on ? '1' : '0');
+function setTheme(theme) {
+  const validThemes = ['light', 'dark', 'dark-blue'];
+  if (!validThemes.includes(theme)) theme = 'light';
+
+  document.documentElement.dataset.theme = theme === 'light' ? '' : theme;
+  localStorage.setItem('bm_theme', theme);
+
+  // 旧版との互換性を維持（darkなら1、それ以外は0）。
+  localStorage.setItem('bm_dark', theme === 'dark' ? '1' : '0');
 }
 
 // ============================================================

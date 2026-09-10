@@ -33,6 +33,17 @@
       --primary-hover: #8baad6;
     }
 
+    /* 少し柔らかい濃紺テーマ */
+    [data-theme="dark-blue"] {
+      --bg-color: #17212b;
+      --card-bg: #1f2d3a;
+      --text-color: #e6edf3;
+      --sub-text-color: #9eacb9;
+      --border-color: #334657;
+      --primary-color: #78a9d2;
+      --primary-hover: #98bee0;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -306,6 +317,16 @@
       color: var(--text-color);
     }
 
+    .theme-select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-color);
+      color: var(--text-color);
+      font-size: 14px;
+    }
+
     /* モーダル */
     .modal-overlay {
       position: fixed;
@@ -415,9 +436,12 @@
       <input type="range" id="line-height-range" min="80" max="220" value="160">
     </div>
     <div class="setting-item">
-      <label>
-        <input type="checkbox" id="dark-mode-toggle"> ダークモード
-      </label>
+      <label for="theme-select">テーマ</label>
+      <select id="theme-select" class="theme-select">
+        <option value="light">ライト</option>
+        <option value="dark">ダーク</option>
+        <option value="dark-blue">ダークブルー</option>
+      </select>
     </div>
 
     <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border-color);">
@@ -472,6 +496,6 @@
   <div id="toast" class="toast hidden"></div>
 
   <!-- メインスクリプト (v20) -->
-  <script src="app.js?v=20"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>
