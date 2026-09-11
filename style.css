@@ -345,6 +345,15 @@ body.edit-mode .tree-actions.edit-only {
   border-bottom: 1px solid var(--border);
   cursor: grab;
 }
+
+/* 閲覧モードでは、ブックマーク行のどこをタップしても開けることを示す */
+body:not(.edit-mode) .item-row {
+  cursor: pointer;
+}
+
+body.edit-mode .item-row {
+  cursor: grab;
+}
 .item-row:last-child { border-bottom: none; }
 .item-favicon {
   width: 16px;

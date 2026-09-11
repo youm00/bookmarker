@@ -364,6 +364,18 @@ function renderItemRow(item) {
   row.className = 'item-row';
   row.dataset.id = item.id;
 
+  // 閲覧モードでは、ブックマーク行の空白部分もタップ可能にする。
+  // タイトル(a要素)をタップした場合は通常のリンク動作をそのまま使う。
+  if (item.type === 'bookmark') {
+    row.addEventListener('click', (e) => {
+      if (editMode) return;
+      if (e.target.closest('a, button')) return;
+      if (item.url) {
+        window.open(item.url, '_blank', 'noopener,noreferrer');
+      }
+    });
+  }
+
   const icon = document.createElement('div');
   icon.className = 'item-favicon';
   icon.textContent = item.type === 'folder' ? '📁' : '';
