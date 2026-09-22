@@ -5,7 +5,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(動作確認用)
-const APP_VERSION = 'v23';
+const APP_VERSION = 'v24';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -160,7 +160,7 @@ async function enterApp() {
   }
 
   try {
-    const loaded = await loadBookmarks({ silent: false });
+    const loaded = await loadBookmarks({ silent: false, render: false });
 
     // 通信に失敗しても、認証済みユーザーをログイン画面へ戻さない。
     // 既存デザインのままアプリ画面を表示し、エラーはトーストで知らせる。
@@ -341,7 +341,7 @@ function updateDebugInfo() {
 // ============================================================
 // データ読み込み
 // ============================================================
-async function loadBookmarks({ silent = false } = {}) {
+async function loadBookmarks({ silent = false, render = true } = {}) {
   const token = ++bookmarksLoadToken;
 
   const { data, error } = await sb
@@ -360,7 +360,7 @@ async function loadBookmarks({ silent = false } = {}) {
     return false;
   }
 
-  applyBookmarksData(data, true);
+  applyBookmarksData(data, render);
   writeBookmarksCache(allItems);
   return true;
 }
