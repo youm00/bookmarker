@@ -11,6 +11,12 @@
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   
   <style>
+    /* 起動直後のログイン画面の一瞬のちらつきを防止。
+       認証確認中だけ見た目を隠し、既存デザイン自体は変更しない。 */
+    body.booting #login-screen {
+      visibility: hidden;
+    }
+
     :root {
       --font-size: 15px;
       --line-height: 1.6;
@@ -372,7 +378,7 @@
     body.edit-mode .edit-only { display: inline-block; }
   </style>
 </head>
-<body>
+<body class="booting">
 
   <!-- ログイン画面 -->
   <div id="login-screen" class="login-container">
@@ -495,7 +501,7 @@
   <!-- トースト通知 -->
   <div id="toast" class="toast hidden"></div>
 
-  <!-- メインスクリプト (v20) -->
-  <script src="app.js?v=21"></script>
+  <!-- メインスクリプト (v23) -->
+  <script src="app.js?v=23"></script>
 </body>
 </html>

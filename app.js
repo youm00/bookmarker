@@ -5,7 +5,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(動作確認用)
-const APP_VERSION = 'v19';
+const APP_VERSION = 'v23';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -19,6 +19,11 @@ let searchQuery = '';
 let editMode = false;       // false = 閲覧モード, true = 編集モード
 let sortableInstance = null; // SortableJSのインスタンス保持用
 
+// ---------- 起動時キャッシュ ----------
+const BOOKMARK_CACHE_VERSION = 1;
+const BOOKMARK_CACHE_KEY_PREFIX = 'bm_bookmarks_cache_v1_';
+let bookmarksLoadToken = 0;
+
 // ============================================================
 // 起動
 // ============================================================
@@ -29,9 +34,145 @@ async function init() {
   bindStaticEvents();
 
   const { data: { session } } = await sb.auth.getSession();
+
   if (session) {
     currentUser = session.user;
     await enterApp();
+  } else {
+    // 未ログインの場合だけ、ここでログイン画面を表示する。
+    document.getElementById('login-screen').classList.remove('hidden');
+    finishBoot();
+  }
+}
+
+function finishBoot() {
+  document.body.classList.remove('booting');
+}
+
+function getBookmarkCacheKey() {
+  return BOOKMARK_CACHE_KEY_PREFIX + (currentUser ? currentUser.id : 'anonymous');
+}
+
+function readBookmarksCache() {
+  if (!currentUser) return null;
+
+  try {
+    const raw = localStorage.getItem(getBookmarkCacheKey());
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (
+      !parsed ||
+      parsed.version !== BOOKMARK_CACHE_VERSION ||
+      !Array.isArray(parsed.items)
+    ) {
+      return null;
+    }
+
+    return {
+      items: parsed.items,
+      savedAt: parsed.savedAt || 0
+    };
+  } catch (err) {
+    // キャッシュが壊れていても、本体のログイン/DB処理には影響させない。
+    console.warn('ブックマークキャッシュの読み込みに失敗しました:', err);
+    return null;
+  }
+}
+
+function writeBookmarksCache(items) {
+  if (!currentUser || !Array.isArray(items)) return;
+
+  try {
+    localStorage.setItem(
+      getBookmarkCacheKey(),
+      JSON.stringify({
+        version: BOOKMARK_CACHE_VERSION,
+        savedAt: Date.now(),
+        items
+      })
+    );
+  } catch (err) {
+    // localStorage容量不足などの場合はキャッシュだけ諦める。
+    console.warn('ブックマークキャッシュの保存に失敗しました:', err);
+  }
+}
+
+function applyBookmarksData(data, render = true) {
+  allItems = Array.isArray(data) ? data : [];
+  rebuildIndexes();
+
+  // 現在位置のフォルダが更新後データに存在しない場合はトップへ戻す。
+  if (currentFolderId && !itemsById.has(currentFolderId)) {
+    currentFolderId = null;
+  }
+
+  if (render) {
+    renderBreadcrumb();
+    renderList();
+  }
+}
+
+function prepareInitialFolder() {
+  const params = new URLSearchParams(location.search);
+  const targetFolderId = params.get('folder');
+
+  if (targetFolderId && itemsById.has(targetFolderId)) {
+    currentFolderId = targetFolderId;
+  } else {
+    currentFolderId = null;
+
+    if (targetFolderId) {
+      history.replaceState({ folderId: null }, '', location.pathname);
+    } else if (!history.state || history.state.folderId !== null) {
+      history.replaceState({ folderId: null }, '', location.pathname);
+    }
+  }
+
+  searchQuery = '';
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) searchInput.value = '';
+
+  renderBreadcrumb();
+  renderList();
+}
+
+function showApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  setEditMode(false);
+}
+
+async function enterApp() {
+  // まずローカルキャッシュがあれば、それを即表示する。
+  // 初回だけはキャッシュがないので、Supabase取得完了まで待つ。
+  const cached = readBookmarksCache();
+
+  if (cached) {
+    applyBookmarksData(cached.items, true);
+    prepareInitialFolder();
+    showApp();
+    finishBoot();
+
+    // 最新データは裏で取得する。通信完了後に画面とキャッシュを更新。
+    loadBookmarks({ silent: true });
+    return;
+  }
+
+  try {
+    const loaded = await loadBookmarks({ silent: false });
+
+    // 通信に失敗しても、認証済みユーザーをログイン画面へ戻さない。
+    // 既存デザインのままアプリ画面を表示し、エラーはトーストで知らせる。
+    prepareInitialFolder();
+    showApp();
+
+    if (!loaded) {
+      // allItemsが空のため一覧には既存の「項目がありません」が表示される。
+      // 再読み込み時にはキャッシュがあればそちらを優先できる。
+    }
+  } finally {
+    finishBoot();
   }
 }
 
@@ -200,20 +341,28 @@ function updateDebugInfo() {
 // ============================================================
 // データ読み込み
 // ============================================================
-async function loadBookmarks() {
+async function loadBookmarks({ silent = false } = {}) {
+  const token = ++bookmarksLoadToken;
+
   const { data, error } = await sb
     .from('bookmarks')
     .select('*')
     .order('position', { ascending: true });
 
+  // より新しい取得処理が完了している場合、古いレスポンスで
+  // 新しい画面/キャッシュを上書きしない。
+  if (token !== bookmarksLoadToken) return false;
+
   if (error) {
-    toast('読み込みエラー: ' + error.message);
-    return;
+    if (!silent) {
+      toast('読み込みエラー: ' + error.message);
+    }
+    return false;
   }
-  allItems = data;
-  rebuildIndexes();
-  renderBreadcrumb();
-  renderList();
+
+  applyBookmarksData(data, true);
+  writeBookmarksCache(allItems);
+  return true;
 }
 
 function rebuildIndexes() {
