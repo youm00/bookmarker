@@ -5,7 +5,7 @@ const SUPABASE_URL = 'https://sdrlnovrwxoajnewvvgg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcmxub3Zyd3hvYWpuZXd2dmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTcyODMsImV4cCI6MjEwNDI3MzI4M30.g5SeP1feoi_rbAAkMMqTjWipTBaM3zcgsXsClGtWBbQ';
 
 // 今読み込まれているコードのバージョン(動作確認用)
-const APP_VERSION = 'v24';
+const APP_VERSION = 'v25';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -253,23 +253,6 @@ async function handleLogout() {
   currentUser = null;
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
-}
-
-async function enterApp() {
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
-  setEditMode(false);
-  await loadBookmarks();
-
-  const params = new URLSearchParams(location.search);
-  const targetFolderId = params.get('folder');
-
-  if (targetFolderId && itemsById.has(targetFolderId)) {
-    selectFolder(targetFolderId, { pushHistory: false });
-  } else {
-    selectFolder(null, { pushHistory: false });
-    history.replaceState({ folderId: null }, '', location.pathname);
-  }
 }
 
 // ============================================================
